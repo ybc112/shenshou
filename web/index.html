@@ -161,7 +161,7 @@
                   <div><span>收款地址</span><strong data-sale-receiver>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
-                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="1000" /></label>
+                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入认购数量" /></label>
                   <button class="gold-button" type="submit"><i data-lucide="ticket"></i><span>立即认购</span></button>
                 </form>
                 <form class="sale-form sale-owner-form" data-sale-owner-form>
@@ -187,9 +187,9 @@
                 <span class="contract-pill">创建费用：<b data-creation-fee>--</b></span>
               </div>
               <form class="create-form" data-create-form>
-                <label><span>神兽名称</span><input name="beastName" type="text" placeholder="金曜麒麟" required /></label>
-                <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="Golden Qilin" required /></label>
-                <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="GQLN" required /></label>
+                <label><span>神兽名称</span><input name="beastName" type="text" placeholder="输入神兽名称" required /></label>
+                <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
+                <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
                 <label>
                   <span>神兽类型</span>
                   <select name="beastType">
@@ -203,11 +203,11 @@
                     <option value="7">自定义</option>
                   </select>
                 </label>
-                <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
-                <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
-                <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="0 = 不开启" /></label>
-                <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="0.001" /></label>
-                <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
+                <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
+                <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="输入进化阈值" /></label>
+                <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="留空则不开启" /></label>
+                <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
+                <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
                 <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
                 <div class="form-wide avatar-upload" data-avatar-upload>
@@ -345,9 +345,9 @@
             <span class="contract-pill">创建费用：<b data-creation-fee>--</b></span>
           </div>
           <form class="create-form create-form-page" data-create-form>
-            <label><span>神兽名称</span><input name="beastName" type="text" placeholder="金曜麒麟" required /></label>
-            <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="Golden Qilin" required /></label>
-            <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="GQLN" required /></label>
+            <label><span>神兽名称</span><input name="beastName" type="text" placeholder="输入神兽名称" required /></label>
+            <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
+            <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
             <label>
               <span>神兽类型</span>
               <select name="beastType">
@@ -361,11 +361,11 @@
                 <option value="7">自定义</option>
               </select>
             </label>
-            <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
-            <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
-            <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="0 = 不开启" /></label>
-            <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="0.001" /></label>
-            <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
+            <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
+            <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="输入进化阈值" /></label>
+            <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="留空则不开启" /></label>
+            <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
+            <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
             <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
             <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
             <div class="form-wide avatar-upload" data-avatar-upload>
@@ -451,7 +451,7 @@
                   <div><span>收款地址</span><strong data-sale-receiver>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
-                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="1000" /></label>
+                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入认购数量" /></label>
                   <button class="gold-button" type="submit"><i data-lucide="ticket"></i><span>立即认购</span></button>
                 </form>
                 <form class="sale-form sale-owner-form" data-sale-owner-form>
