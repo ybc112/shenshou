@@ -210,16 +210,16 @@
                 <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
                 <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
                 <label class="form-wide upload-field">
-                  <span>本地神兽图片</span>
-                  <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
+                  <span>神兽图片</span>
+                  <strong class="file-picker"><i data-lucide="upload"></i>选择图片</strong>
                   <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-                  <small>可选，前端会生成本地 data 元数据 URI，不上传 IPFS。</small>
+                  <small>选择后可预览，未选也能创建。</small>
                 </label>
                 <div class="upload-preview" data-upload-preview>
                   <span class="upload-sigil">兽</span>
                   <div>
                     <strong>未选择图片</strong>
-                    <small>选择本地图片后会写入本地元数据 URI</small>
+                    <small>选择后会在这里预览。</small>
                   </div>
                 </div>
                 <button class="gold-button form-submit" type="submit"><i data-lucide="rocket"></i><span>上链创建</span></button>
@@ -361,16 +361,16 @@
             <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
             <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
             <label class="form-wide upload-field">
-              <span>本地神兽图片</span>
-              <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
+              <span>神兽图片</span>
+              <strong class="file-picker"><i data-lucide="upload"></i>选择图片</strong>
               <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-              <small>可选，前端会生成本地 data 元数据 URI，不上传 IPFS。</small>
+              <small>选择后可预览，未选也能创建。</small>
             </label>
             <div class="upload-preview" data-upload-preview>
               <span class="upload-sigil">兽</span>
               <div>
                 <strong>未选择图片</strong>
-                <small>选择本地图片后会写入本地元数据 URI</small>
+                <small>选择后会在这里预览。</small>
               </div>
             </div>
             <button class="gold-button form-submit" type="submit"><i data-lucide="rocket"></i><span>上链创建</span></button>
@@ -555,7 +555,7 @@
             <article class="help-card">
               <i data-lucide="sparkles"></i>
               <h2>怎样创建神兽</h2>
-              <p>填写神兽名称、Token 信息、供应量和进化阈值，选择本地图片后确认钱包交易。需要公开认购时，再填写认购数量、单价和截止时间。</p>
+              <p>填写神兽名称、Token 信息、供应量和进化阈值，添加神兽图片后确认钱包交易。需要公开认购时，再填写认购数量、单价和截止时间。</p>
             </article>
             <article class="help-card">
               <i data-lucide="ticket"></i>

@@ -933,7 +933,7 @@ async function updateUploadPreview(input) {
       sigil.textContent = "兽";
     }
     if (title) title.textContent = "未选择图片";
-    if (desc) desc.textContent = "选择本地图片后会写入本地元数据 URI";
+    if (desc) desc.textContent = "选择后会在这里预览。";
     return;
   }
 
@@ -944,7 +944,7 @@ async function updateUploadPreview(input) {
     preview.dataset.hasImage = "true";
   }
   if (title) title.textContent = file.name;
-  if (desc) desc.textContent = `${(file.size / 1024).toFixed(1)} KB，本地压缩后写入合约元数据`;
+  if (desc) desc.textContent = "图片已选择，可继续创建。";
 }
 
 function resetUploadPreview(form) {
