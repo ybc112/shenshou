@@ -1619,6 +1619,115 @@ input[type="file"]::file-selector-button {
   padding-top: 2px;
 }
 
+.admin-tools {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(217, 164, 68, 0.22);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(217, 164, 68, 0.075), transparent 52%),
+    rgba(7, 9, 17, 0.34);
+}
+
+.admin-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.admin-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-head span,
+.admin-panel label span,
+.dex-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.admin-head strong {
+  color: #ffe3a0;
+  font-size: 16px;
+}
+
+.admin-head small {
+  max-width: 360px;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-form.dex-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-form label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-form .check-field {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(7, 9, 17, 0.28);
+}
+
+.admin-form .check-field input {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-form button {
+  min-height: 42px;
+}
+
+.dex-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dex-summary div {
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(7, 9, 17, 0.28);
+}
+
+.dex-summary strong {
+  display: block;
+  margin-top: 6px;
+  overflow: hidden;
+  color: #f6f7ff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -2051,6 +2160,12 @@ button:disabled {
   .create-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-form,
+  .admin-form.dex-form,
+  .dex-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1080px) {
@@ -2218,9 +2333,21 @@ button:disabled {
   .right-column,
   .detail-grid,
   .create-form,
+  .admin-form,
+  .admin-form.dex-form,
+  .dex-summary,
   .sale-form,
   .address-form {
     grid-template-columns: 1fr;
+  }
+
+  .admin-head {
+    display: grid;
+  }
+
+  .admin-head small {
+    max-width: none;
+    text-align: left;
   }
 
   .form-wide {

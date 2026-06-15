@@ -174,6 +174,7 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
+              <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
                 <button class="outline-button" type="button" data-action="copy-token"><i data-lucide="copy"></i><span>复制 Token 地址</span></button>
@@ -216,7 +217,7 @@
                     <span class="avatar-preview" data-avatar-preview><i data-lucide="plus"></i></span>
                     <span class="avatar-copy">
                       <strong data-avatar-title>上传神兽头像</strong>
-                      <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，会自动压缩后加入部署信息。</em>
+                      <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，上传后会自动整理到创建资料里。</em>
                     </span>
                   </label>
                   <div class="avatar-actions" data-avatar-actions hidden>
@@ -261,8 +262,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>灵符奖励</span><strong data-ticket-count>链上已开放</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>待绑定</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>连接后查看</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>连接后查看</strong></div>
               </div>
               <button class="outline-button full" type="button" data-action="connect-wallet">连接钱包</button>
             </section>
@@ -276,12 +277,12 @@
               </div>
               <div class="reward-row">
                 <span><i data-lucide="gem"></i>灵符奖励</span>
-                <strong>链上已开放</strong>
+                <strong data-talisman-status>连接后查看</strong>
                 <button type="button" data-action="claim-talisman">领取</button>
               </div>
               <div class="reward-row">
                 <span><i data-lucide="circle-dot"></i>号码奖励</span>
-                <strong>链上已开放</strong>
+                <strong data-lucky-status>连接后查看</strong>
                 <button type="button" data-action="lucky-number-action">绑定/领取</button>
               </div>
               <button class="gold-button full" type="button" data-action="claim-dividends">领取分红</button>
@@ -374,7 +375,7 @@
                 <span class="avatar-preview" data-avatar-preview><i data-lucide="plus"></i></span>
                 <span class="avatar-copy">
                   <strong data-avatar-title>上传神兽头像</strong>
-                  <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，会自动压缩后加入部署信息。</em>
+                  <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，上传后会自动整理到创建资料里。</em>
                 </span>
               </label>
               <div class="avatar-actions" data-avatar-actions hidden>
@@ -463,6 +464,7 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
+              <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
                 <button class="outline-button" type="button" data-action="copy-token"><i data-lucide="copy"></i><span>复制 Token</span></button>
@@ -491,8 +493,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>灵符奖励</span><strong data-ticket-count>链上已开放</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>待绑定</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>连接后查看</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>连接后查看</strong></div>
               </div>
             </section>
             <section class="reward-card reward-main">
@@ -504,12 +506,12 @@
               </div>
               <div class="reward-row">
                 <span><i data-lucide="gem"></i>灵符奖励</span>
-                <strong>链上已开放</strong>
+                <strong data-talisman-status>连接后查看</strong>
                 <button type="button" data-action="claim-talisman">领取</button>
               </div>
               <div class="reward-row">
                 <span><i data-lucide="circle-dot"></i>号码奖励</span>
-                <strong>链上已开放</strong>
+                <strong data-lucky-status>连接后查看</strong>
                 <button type="button" data-action="lucky-number-action">绑定/领取</button>
               </div>
               <button class="gold-button full" type="button" data-action="claim-dividends">领取分红</button>
@@ -547,6 +549,8 @@
                   <th>风险池</th>
                   <th>奖励池</th>
                   <th>平台金库</th>
+                  <th>DEX</th>
+                  <th>自动机制</th>
                   <th>发射状态</th>
                   <th>销毁</th>
                   <th>分红储备</th>
@@ -579,12 +583,17 @@
             <article class="help-card">
               <i data-lucide="coins"></i>
               <h2>怎样获得奖励</h2>
-              <p>持有神兽 Token 后，交易税会进入税池。神兽进化时会销毁一部分并释放分红，钱包连接后可在奖励中心领取。</p>
+              <p>持有神兽 Token 后，交易税会进入税池。神兽进化时会销毁一部分并释放分红，也会开启灵符和本命号码奖励轮次。</p>
+            </article>
+            <article class="help-card">
+              <i data-lucide="settings-2"></i>
+              <h2>项目方怎样运营</h2>
+              <p>发射台管理员可在兽巢详情里配置奖励参数、手动开奖、DEX 路由、回购地址、自动回购比例和自动加池比例。</p>
             </article>
             <article class="help-card">
               <i data-lucide="shield-check"></i>
               <h2>安全提醒</h2>
-              <p>只认准页面显示的合约地址和钱包弹窗金额。未接入操作的按钮不会收费，发射取消后可在详情页申请退款。</p>
+              <p>只认准页面显示的合约地址和钱包弹窗金额。创建、认购、开奖和 DEX 设置都会弹出钱包确认，确认前请核对操作内容。</p>
             </article>
           </div>
         </section>

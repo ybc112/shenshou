@@ -52,4 +52,4 @@ npm run seed:local
 npm run web
 ```
 
-`deploy:local` 会部署 Token 部署器、认购金库部署器、发射台和税池，并写入 `web/config.js`。`seed:local` 会创建真实链上神兽项目，并模拟交易税、灵气、销毁和分红数据。
+`deploy:local` 会部署 Token 部署器、认购金库部署器、发射台和税池，并写入 `web/config.js`。`seed:local` 会创建真实链上神兽项目，并生成联调用的交易税、灵气、销毁和分红数据。
