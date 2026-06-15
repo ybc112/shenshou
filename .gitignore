@@ -9,5 +9,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 web/server.*.log
+web/deployments/*.json
 output/playwright/
 output/hardhat/

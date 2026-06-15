@@ -31,7 +31,10 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(180deg, #070911 0%, #090c16 48%, #0b0e17 100%);
+  background-size: 42px 42px, 42px 42px, auto;
   color: var(--text);
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
   font-size: 14px;
@@ -131,6 +134,7 @@ img {
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -141,6 +145,7 @@ img {
   background: transparent;
   color: var(--muted);
   text-align: left;
+  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
 .nav-icon,
@@ -172,6 +177,10 @@ img {
 .nav-item.active {
   color: #ffe7a8;
   background: linear-gradient(90deg, rgba(217, 164, 68, 0.28), rgba(217, 164, 68, 0.08));
+}
+
+.nav-item:hover {
+  transform: translateX(2px);
 }
 
 .creator-callout,
@@ -506,6 +515,7 @@ input[type="file"]::file-selector-button {
   border-radius: 8px;
   padding: 0 18px;
   font-weight: 800;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease, filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .wallet-button,
@@ -535,6 +545,17 @@ input[type="file"]::file-selector-button {
 
 .gold-button:hover {
   filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.5), 0 14px 30px rgba(196, 132, 38, 0.28);
+}
+
+.outline-button:hover,
+.ghost-button:hover,
+.wallet-button:hover,
+.icon-button:hover {
+  border-color: rgba(245, 205, 114, 0.72);
+  background: rgba(217, 164, 68, 0.14);
+  transform: translateY(-1px);
 }
 
 .gold-button.small {
@@ -562,6 +583,7 @@ input[type="file"]::file-selector-button {
 
 .page-view.active {
   display: block;
+  animation: pageIn 220ms ease both;
 }
 
 .content-grid.page-view.active,
@@ -863,6 +885,17 @@ input[type="file"]::file-selector-button {
   border-color: rgba(217, 164, 68, 0.24);
 }
 
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(115deg, transparent 0 42%, rgba(245, 205, 114, 0.08) 48%, transparent 54% 100%);
+  transform: translateX(-60%);
+  animation: heroSweep 8s ease-in-out infinite;
+}
+
 .hero-panel::before {
   content: "";
   position: absolute;
@@ -944,6 +977,7 @@ input[type="file"]::file-selector-button {
     conic-gradient(from 20deg, transparent, rgba(245, 205, 114, 0.34), transparent 34%, rgba(84, 211, 109, 0.28), transparent 68%),
     radial-gradient(circle, rgba(217, 164, 68, 0.1), transparent 58%);
   filter: drop-shadow(0 0 42px rgba(217, 164, 68, 0.16));
+  animation: orbitSpin 18s linear infinite;
 }
 
 .hero-rune {
@@ -958,6 +992,7 @@ input[type="file"]::file-selector-button {
   color: #2c1a04;
   font-size: 76px;
   font-weight: 900;
+  animation: runePulse 3.8s ease-in-out infinite;
 }
 
 .hero-spark {
@@ -971,12 +1006,14 @@ input[type="file"]::file-selector-button {
   top: 28%;
   right: 16%;
   transform: rotate(-24deg);
+  animation: sparkTravel 4s ease-in-out infinite;
 }
 
 .hero-spark.two {
   right: 30%;
   bottom: 24%;
   transform: rotate(22deg);
+  animation: sparkTravel 4.8s ease-in-out 900ms infinite;
 }
 
 .hero-stats {
@@ -1026,12 +1063,15 @@ input[type="file"]::file-selector-button {
   min-height: 58px;
   padding: 0 18px;
   color: var(--muted);
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
 .status-card.active,
 .status-card:hover {
   border-color: rgba(217, 164, 68, 0.5);
   color: #ffe7a8;
+  background: linear-gradient(180deg, rgba(31, 28, 35, 0.98), rgba(14, 17, 28, 0.98));
+  transform: translateY(-1px);
 }
 
 .status-card strong {
@@ -1073,6 +1113,27 @@ input[type="file"]::file-selector-button {
   position: relative;
   overflow: hidden;
   min-height: 368px;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.beast-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, transparent 0 52%, rgba(245, 205, 114, 0.08) 54%, transparent 60%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.beast-card:hover {
+  border-color: rgba(245, 205, 114, 0.55);
+  transform: translateY(-3px);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.38);
+}
+
+.beast-card:hover::after {
+  opacity: 1;
 }
 
 .beast-card.selected {
@@ -1130,6 +1191,12 @@ input[type="file"]::file-selector-button {
   font-size: 48px;
   font-weight: 900;
   box-shadow: 0 0 36px rgba(217, 164, 68, 0.18);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.beast-card:hover .beast-art span {
+  transform: scale(1.06) rotate(-3deg);
+  box-shadow: 0 0 46px rgba(217, 164, 68, 0.28);
 }
 
 .tone-1 { --tone: #f05f45; }
@@ -1259,7 +1326,12 @@ input[type="file"]::file-selector-button {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--green-2), var(--green));
+  background:
+    linear-gradient(90deg, var(--green-2), var(--green)),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  background-size: auto, 64px 100%;
+  background-blend-mode: normal, screen;
+  animation: progressFlow 2.6s linear infinite;
 }
 
 .progress-line.compact strong {
@@ -1471,6 +1543,40 @@ input[type="file"]::file-selector-button {
   padding: 18px;
 }
 
+.tax-card {
+  overflow: hidden;
+}
+
+.tax-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tax-grid div {
+  min-height: 74px;
+  border: 1px solid rgba(217, 164, 68, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(217, 164, 68, 0.12), rgba(7, 9, 17, 0.34));
+}
+
+.tax-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tax-grid strong {
+  display: block;
+  margin-top: 8px;
+  color: #ffe3a0;
+  font-size: 22px;
+  line-height: 1;
+}
+
 .next-card {
   border-color: rgba(217, 164, 68, 0.3);
 }
@@ -1665,6 +1771,13 @@ button:disabled {
   background: rgba(7, 9, 17, 0.52);
   color: #ffe3a0;
   font-weight: 900;
+  transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.mechanism-flow span:hover {
+  border-color: rgba(245, 205, 114, 0.52);
+  color: #fff2c8;
+  transform: translateY(-2px);
 }
 
 .mechanism-flow span:not(:last-child)::after {
@@ -1733,6 +1846,10 @@ button:disabled {
 
   .right-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tax-card {
+    grid-column: span 2;
   }
 
   .mechanism-card {
@@ -1945,6 +2062,14 @@ button:disabled {
     grid-column: auto;
   }
 
+  .tax-card {
+    grid-column: auto;
+  }
+
+  .tax-grid {
+    grid-template-columns: 1fr;
+  }
+
   .mobile-dock {
     position: fixed;
     left: 12px;
@@ -1980,6 +2105,62 @@ button:disabled {
   .mobile-dock svg {
     width: 18px;
     height: 18px;
+  }
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orbitSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes runePulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.12);
+  }
+}
+
+@keyframes sparkTravel {
+  0%, 100% {
+    opacity: 0.42;
+    margin-right: 0;
+  }
+  50% {
+    opacity: 0.95;
+    margin-right: 34px;
+  }
+}
+
+@keyframes heroSweep {
+  0%, 68%, 100% {
+    transform: translateX(-68%);
+    opacity: 0;
+  }
+  38% {
+    transform: translateX(72%);
+    opacity: 1;
+  }
+}
+
+@keyframes progressFlow {
+  to {
+    background-position: 0 0, 64px 0;
   }
 }
 

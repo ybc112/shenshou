@@ -11,6 +11,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     uint16 public constant BPS = 10_000;
     uint16 public constant MAX_BUY_TAX_BPS = 500;
     uint16 public constant MAX_SELL_TAX_BPS = 1_000;
+    uint16 public constant PLATFORM_TAX_SHARE_BPS = 2_000;
     uint256 private constant MAGNITUDE = 2 ** 128;
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
@@ -309,15 +310,34 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
         FeeRates memory rates = isSell ? sellFees : buyFees;
 
-        uint256 evolutionAmount = (value * rates.evolution) / BPS;
-        uint256 fortuneAmount = (value * rates.fortune) / BPS;
-        uint256 riskAmount = (value * rates.risk) / BPS;
-        uint256 rewardAmount = (value * rates.reward) / BPS;
-        uint256 treasuryAmount = (value * rates.treasury) / BPS;
-        uint256 burnAmount = (value * rates.burn) / BPS;
+        uint256 totalFeeBps_ = _totalFeeBps(rates);
+        if (totalFeeBps_ == 0) {
+            _rawUpdate(from, to, value);
+            return;
+        }
+
+        uint256 feeAmount = (value * totalFeeBps_) / BPS;
+        if (feeAmount == 0) {
+            _rawUpdate(from, to, value);
+            return;
+        }
+
+        uint256 platformAmount = (feeAmount * PLATFORM_TAX_SHARE_BPS) / BPS;
+        uint256 projectFeeAmount = feeAmount - platformAmount;
+
+        uint256 evolutionAmount = _projectFeeShare(projectFeeAmount, rates.evolution, totalFeeBps_);
+        uint256 fortuneAmount = _projectFeeShare(projectFeeAmount, rates.fortune, totalFeeBps_);
+        uint256 riskAmount = _projectFeeShare(projectFeeAmount, rates.risk, totalFeeBps_);
+        uint256 rewardAmount = _projectFeeShare(projectFeeAmount, rates.reward, totalFeeBps_);
+        uint256 treasuryAmount = _projectFeeShare(projectFeeAmount, rates.treasury, totalFeeBps_) + platformAmount;
+        uint256 burnAmount = _projectFeeShare(projectFeeAmount, rates.burn, totalFeeBps_);
+
+        uint256 routedAmount = evolutionAmount + fortuneAmount + riskAmount + rewardAmount + treasuryAmount + burnAmount;
+        if (feeAmount > routedAmount) {
+            treasuryAmount += feeAmount - routedAmount;
+        }
 
         uint256 vaultAmount = evolutionAmount + fortuneAmount + riskAmount + rewardAmount + treasuryAmount;
-        uint256 feeAmount = vaultAmount + burnAmount;
         uint256 sendAmount = value - feeAmount;
 
         if (vaultAmount > 0) {
@@ -405,6 +425,18 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
     function _totalFeeBps(FeeRates memory fees) private pure returns (uint256) {
         return fees.evolution + fees.fortune + fees.risk + fees.reward + fees.treasury + fees.burn;
+    }
+
+    function _projectFeeShare(
+        uint256 projectFeeAmount,
+        uint16 feeBps,
+        uint256 totalFeeBps_
+    ) private pure returns (uint256) {
+        if (feeBps == 0 || projectFeeAmount == 0) {
+            return 0;
+        }
+
+        return (projectFeeAmount * feeBps) / totalFeeBps_;
     }
 
     function _toInt256(uint256 value) private pure returns (int256) {

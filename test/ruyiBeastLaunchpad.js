@@ -51,25 +51,27 @@ describe("Ruyi Beast Launchpad", function () {
 
     assert.equal(await token.balanceOf(alice.address), ethers.parseEther("970"));
     assert.equal(await token.balanceOf(await vault.getAddress()), ethers.parseEther("30"));
-    assert.equal(await token.aura(), ethers.parseEther("15"));
+    assert.equal(await token.PLATFORM_TAX_SHARE_BPS(), 2000n);
+    assert.equal(await token.aura(), ethers.parseEther("12"));
 
     let pools = await vault.poolBalances(tokenAddress);
-    assert.equal(pools.evolution, ethers.parseEther("15"));
-    assert.equal(pools.fortune, ethers.parseEther("5"));
-    assert.equal(pools.risk, ethers.parseEther("5"));
-    assert.equal(pools.reward, ethers.parseEther("5"));
+    assert.equal(pools.evolution, ethers.parseEther("12"));
+    assert.equal(pools.fortune, ethers.parseEther("4"));
+    assert.equal(pools.risk, ethers.parseEther("4"));
+    assert.equal(pools.reward, ethers.parseEther("4"));
+    assert.equal(pools.treasury, ethers.parseEther("6"));
 
     await token.connect(alice).transfer(pair.address, ethers.parseEther("100"));
 
     assert.equal(await token.balanceOf(pair.address), ethers.parseEther("99095"));
-    assert.equal(await token.aura(), ethers.parseEther("17"));
+    assert.equal(await token.aura(), ethers.parseEther("13.6"));
 
     pools = await vault.poolBalances(tokenAddress);
-    assert.equal(pools.evolution, ethers.parseEther("17"));
-    assert.equal(pools.fortune, ethers.parseEther("6"));
-    assert.equal(pools.risk, ethers.parseEther("6"));
-    assert.equal(pools.reward, ethers.parseEther("5.5"));
-    assert.equal(pools.treasury, ethers.parseEther("0.5"));
+    assert.equal(pools.evolution, ethers.parseEther("13.6"));
+    assert.equal(pools.fortune, ethers.parseEther("4.8"));
+    assert.equal(pools.risk, ethers.parseEther("4.8"));
+    assert.equal(pools.reward, ethers.parseEther("4.4"));
+    assert.equal(pools.treasury, ethers.parseEther("7.4"));
   });
 
   it("evolves, burns evolution pool tokens, and releases holder dividends", async function () {
@@ -84,15 +86,15 @@ describe("Ruyi Beast Launchpad", function () {
     await token.connect(alice).triggerEvolution();
 
     assert.equal(await token.stage(), 1n);
-    assert.equal(await token.aura(), ethers.parseEther("5"));
+    assert.equal(await token.aura(), ethers.parseEther("2"));
     assert.equal(await token.auraThreshold(), ethers.parseEther("15"));
 
     const pools = await vault.poolBalances(tokenAddress);
-    assert.equal(pools.evolution, ethers.parseEther("7.5"));
-    assert.equal(pools.reward, ethers.parseEther("2.5"));
-    assert.equal(pools.burned, ethers.parseEther("7.5"));
-    assert.equal(pools.dividendReserve, ethers.parseEther("2.5"));
-    assert.equal(await token.totalSupply(), supply - ethers.parseEther("7.5"));
+    assert.equal(pools.evolution, ethers.parseEther("6"));
+    assert.equal(pools.reward, ethers.parseEther("2"));
+    assert.equal(pools.burned, ethers.parseEther("6"));
+    assert.equal(pools.dividendReserve, ethers.parseEther("2"));
+    assert.equal(await token.totalSupply(), supply - ethers.parseEther("6"));
 
     const withdrawable = await token.withdrawableDividendOf(alice.address);
     assert.ok(withdrawable > 0n);

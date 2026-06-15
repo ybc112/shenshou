@@ -18,6 +18,8 @@ const TOKEN_ABI = [
   "function aura() view returns (uint256)",
   "function auraThreshold() view returns (uint256)",
   "function tradingEnabled() view returns (bool)",
+  "function totalFeeBps(bool sell) view returns (uint256)",
+  "function PLATFORM_TAX_SHARE_BPS() view returns (uint16)",
   "function withdrawableDividendOf(address account) view returns (uint256)",
   "function claimDividends() returns (uint256 amount)",
   "function triggerEvolution()"
@@ -27,10 +29,12 @@ const VAULT_ABI = [
   "function poolBalances(address token) view returns (uint256 evolution,uint256 fortune,uint256 risk,uint256 reward,uint256 treasury,uint256 burned,uint256 dividendReserve,uint256 dividendsDistributed,uint256 dividendsPaid)"
 ];
 
-const BEAST_RUNES = ["麒", "凤", "貔", "狐", "龙", "虎", "玄", "兽"];
+const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
+const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
 const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"];
 const ZERO = 0n;
+const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
 
 const state = {
   account: "",
@@ -44,7 +48,8 @@ const state = {
   selectedProjectId: null,
   stageFilter: "all",
   creationFee: ZERO,
-  activePage: "home"
+  activePage: "home",
+  platformTaxShareBps: DEFAULT_PLATFORM_TAX_SHARE_BPS
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -69,6 +74,13 @@ function formatCount(value) {
   return new Intl.NumberFormat("en-US").format(Number(value));
 }
 
+function formatBps(value) {
+  const bps = BigInt(value ?? 0);
+  const whole = bps / 100n;
+  const decimal = bps % 100n;
+  return decimal === 0n ? `${whole}%` : `${whole}.${decimal.toString().padStart(2, "0").replace(/0+$/, "")}%`;
+}
+
 function percentOf(value, threshold) {
   if (!threshold || threshold === ZERO) return 0;
   const pct = Number((value * 10_000n) / threshold) / 100;
@@ -88,22 +100,22 @@ function setText(selector, value) {
 
 function showToast(message, type = "info") {
   const toast = $(".toast");
+  if (!toast) return;
   toast.textContent = message;
   toast.dataset.type = type;
   toast.classList.add("show");
   window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2400);
+  showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
 function setLoading(isLoading, message = "读取链上数据中...") {
   document.body.classList.toggle("is-loading", isLoading);
-  const grids = $$("[data-project-grid]");
-  if (isLoading) {
-    grids.forEach((grid) => {
-      grid.innerHTML = emptyMarkup("loader-circle", message, "请稍等，正在从合约读取项目、税池和分红数据。");
-    });
-    refreshIcons();
-  }
+  if (!isLoading) return;
+
+  $$("[data-project-grid]").forEach((grid) => {
+    grid.innerHTML = emptyMarkup("loader-circle", message, "正在读取项目、税池和分红数据。");
+  });
+  refreshIcons();
 }
 
 function emptyMarkup(icon, title, text) {
@@ -153,7 +165,7 @@ function beastSigilMarkup(project, size = "") {
 function getStoredLaunchpadAddress() {
   const fromStorage = localStorage.getItem("ruyi.launchpadAddress") || "";
   const fromConfig = window.RUYI_CONFIG?.launchpadAddress || "";
-  return fromStorage || fromConfig;
+  return fromConfig || fromStorage;
 }
 
 async function makeProvider() {
@@ -216,10 +228,14 @@ async function loadProjects() {
   setLoading(true);
   try {
     const count = Number(await state.launchpad.projectCount());
-    const rawProjects = count > 0 ? await state.launchpad.getProjects(0, Math.min(count, 48)) : [];
+    const rawProjects = count > 0 ? await state.launchpad.getProjects(0, Math.min(count, 96)) : [];
     const normalized = rawProjects.map(normalizeProject);
     state.projects = await Promise.all(normalized.map(enrichProject));
     state.projects.sort((a, b) => b.progress - a.progress || b.id - a.id);
+
+    if (state.projects[0]) {
+      state.platformTaxShareBps = state.projects[0].platformTaxShareBps;
+    }
 
     if (state.selectedProjectId === null && state.projects.length > 0) {
       state.selectedProjectId = state.projects[0].id;
@@ -229,7 +245,7 @@ async function loadProjects() {
     renderAllViews();
     await renderIdentity();
   } catch (error) {
-    console.error(error);
+    console.warn(error);
     showToast(`读取失败：${shortError(error)}`, "error");
     updateConnectionStatus(`读取失败：${shortError(error)}`, false);
   } finally {
@@ -239,14 +255,17 @@ async function loadProjects() {
 
 async function enrichProject(project) {
   const token = new ethers.Contract(project.token, TOKEN_ABI, state.provider);
-  const [stage, aura, threshold, totalSupply, symbol, tradingEnabled, pools] = await Promise.all([
+  const [stage, aura, threshold, totalSupply, symbol, tradingEnabled, pools, buyTaxBps, sellTaxBps, platformTaxShareBps] = await Promise.all([
     token.stage().catch(() => 0n),
     token.aura().catch(() => ZERO),
     token.auraThreshold().catch(() => project.auraThreshold || ZERO),
     token.totalSupply().catch(() => project.initialSupply || ZERO),
     token.symbol().catch(() => project.tokenSymbol),
     token.tradingEnabled().catch(() => false),
-    state.vault.poolBalances(project.token).catch(() => null)
+    state.vault.poolBalances(project.token).catch(() => null),
+    token.totalFeeBps(false).catch(() => 300n),
+    token.totalFeeBps(true).catch(() => 500n),
+    token.PLATFORM_TAX_SHARE_BPS().catch(() => DEFAULT_PLATFORM_TAX_SHARE_BPS)
   ]);
 
   const stageNumber = Number(stage);
@@ -263,6 +282,9 @@ async function enrichProject(project) {
     symbol,
     tradingEnabled,
     pools,
+    buyTaxBps: BigInt(buyTaxBps),
+    sellTaxBps: BigInt(sellTaxBps),
+    platformTaxShareBps: BigInt(platformTaxShareBps),
     progress,
     canEvolve: progress >= 100 && stageNumber < 4
   };
@@ -276,6 +298,7 @@ function updateStats() {
   const totalBurned = sumPools("burned");
   const dividendReserve = sumPools("dividendReserve");
   const dividendsDistributed = sumPools("dividendsDistributed");
+  const platformTaxShare = formatBps(state.platformTaxShareBps);
 
   setText("[data-stat='projectCount']", formatCount(projectCount));
   setText("[data-stat='projectCountHero']", formatCount(projectCount));
@@ -285,6 +308,8 @@ function updateStats() {
   setText("[data-stat='totalBurnedHero']", formatToken(totalBurned));
   setText("[data-stat='dividendReserve']", formatToken(dividendReserve));
   setText("[data-stat='dividendsDistributed']", formatToken(dividendsDistributed));
+  setText("[data-stat='platformTaxShare']", platformTaxShare);
+  setText("[data-tax-platform]", platformTaxShare);
 
   setText("[data-stage-count='all']", formatCount(projectCount));
   setText("[data-stage-count='0']", formatCount(byStage[0]));
@@ -349,7 +374,7 @@ function renderProjects() {
 
   if (projects.length === 0) {
     grids.forEach((grid) => {
-      grid.innerHTML = emptyMarkup("egg", "暂无链上神兽", "可以使用下方创建表单上链创建第一只神兽。");
+      grid.innerHTML = emptyMarkup("egg", "暂无链上神兽", "可以使用创建表单上链创建第一只神兽。");
     });
     refreshIcons();
     return;
@@ -373,20 +398,15 @@ function projectSearchAndSort(projects) {
   const searched = !keyword
     ? [...projects]
     : projects.filter((project) => {
-        return [
-          project.beastName,
-          project.tokenName,
-          project.symbol,
-          project.token,
-          project.creator
-        ].some((value) => String(value || "").toLowerCase().includes(keyword));
+        return [project.beastName, project.tokenName, project.symbol, project.token, project.creator]
+          .some((value) => String(value || "").toLowerCase().includes(keyword));
       });
 
   return searched.sort((a, b) => {
     const poolsA = normalizePools(a.pools);
     const poolsB = normalizePools(b.pools);
-    if (sort === "burned") return compareBigIntDesc(poolsB.burned, poolsA.burned);
-    if (sort === "reward") return compareBigIntDesc(poolsB.reward + poolsB.dividendReserve, poolsA.reward + poolsA.dividendReserve);
+    if (sort === "burned") return compareBigIntDesc(poolsA.burned, poolsB.burned);
+    if (sort === "reward") return compareBigIntDesc(poolsA.reward + poolsA.dividendReserve, poolsB.reward + poolsB.dividendReserve);
     if (sort === "created") return b.createdAt - a.createdAt;
     return b.progress - a.progress || b.id - a.id;
   });
@@ -417,7 +437,9 @@ function projectCardMarkup(project, index) {
         </div>
         <dl class="beast-meta">
           <div><dt>奖励池</dt><dd>${formatToken(pools.reward + pools.dividendReserve, project.symbol)}</dd></div>
-          <div><dt>累计销毁</dt><dd>${formatToken(pools.burned, project.symbol)}</dd></div>
+          <div><dt>平台金库</dt><dd>${formatToken(pools.treasury, project.symbol)}</dd></div>
+          <div><dt>买入税</dt><dd>${formatBps(project.buyTaxBps)}</dd></div>
+          <div><dt>卖出税</dt><dd>${formatBps(project.sellTaxBps)}</dd></div>
         </dl>
         <button class="gold-button full" type="button" data-enter-project="${project.id}">进入兽巢</button>
       </div>
@@ -437,7 +459,10 @@ function renderSelectedProject(project) {
     setText("[data-selected-progress]", "--");
     setText("[data-selected-reward]", "--");
     setText("[data-selected-burned]", "--");
+    setText("[data-selected-treasury]", "--");
     setText("[data-selected-aura-label]", "--");
+    setText("[data-tax-buy]", "--");
+    setText("[data-tax-sell]", "--");
     $$("[data-selected-aura-bar]").forEach((bar) => {
       bar.style.width = "0%";
     });
@@ -445,13 +470,19 @@ function renderSelectedProject(project) {
   }
 
   const pools = normalizePools(project.pools);
+  state.platformTaxShareBps = project.platformTaxShareBps;
   setText("[data-selected-name]", `${project.beastName} (${project.symbol})`);
   setText("[data-selected-token]", `Token: ${shortAddress(project.token)}`);
   setText("[data-selected-stage]", STAGE_NAMES[project.stage] || "未知");
   setText("[data-selected-progress]", `${project.progress.toFixed(2)}%`);
   setText("[data-selected-reward]", formatToken(pools.reward + pools.dividendReserve, project.symbol));
   setText("[data-selected-burned]", formatToken(pools.burned, project.symbol));
+  setText("[data-selected-treasury]", formatToken(pools.treasury, project.symbol));
   setText("[data-selected-aura-label]", `${formatToken(project.aura, project.symbol)} / ${formatToken(project.auraThreshold, project.symbol)}`);
+  setText("[data-tax-buy]", formatBps(project.buyTaxBps));
+  setText("[data-tax-sell]", formatBps(project.sellTaxBps));
+  setText("[data-tax-platform]", formatBps(project.platformTaxShareBps));
+  setText("[data-stat='platformTaxShare']", formatBps(project.platformTaxShareBps));
   $$("[data-selected-aura-bar]").forEach((bar) => {
     bar.style.width = `${project.progress}%`;
   });
@@ -488,7 +519,8 @@ function renderNextProject() {
   setText("[data-next-symbol]", next.symbol);
   setText("[data-next-progress]", `${next.progress.toFixed(0)}%`);
   setText("[data-next-desc]", next.canEvolve ? "灵气已满，可触发进化。" : `距离进化还差 ${(100 - next.progress).toFixed(0)}%。`);
-  $("[data-next-bar]").style.width = `${next.progress}%`;
+  const bar = $("[data-next-bar]");
+  if (bar) bar.style.width = `${next.progress}%`;
 }
 
 function renderAllViews() {
@@ -525,7 +557,7 @@ function renderRankTable() {
           <td>${STAGE_NAMES[project.stage] || "未知"}</td>
           <td>${project.progress.toFixed(2)}%</td>
           <td>${formatToken(pools.reward + pools.dividendReserve, project.symbol)}</td>
-          <td>${formatToken(pools.burned, project.symbol)}</td>
+          <td>${formatToken(pools.treasury, project.symbol)}</td>
           <td><button class="outline-button table-action" type="button" data-enter-project="${project.id}">查看</button></td>
         </tr>
       `;
@@ -539,7 +571,7 @@ function renderDataCenter() {
   if (!tbody) return;
 
   if (state.projects.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8">暂无税池数据</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10">暂无税池数据</td></tr>`;
     return;
   }
 
@@ -548,6 +580,8 @@ function renderDataCenter() {
     return `
       <tr>
         <td>${escapeHtml(project.beastName)} <small>${escapeHtml(project.symbol)}</small></td>
+        <td>${formatBps(project.buyTaxBps)}</td>
+        <td>${formatBps(project.sellTaxBps)}</td>
         <td>${formatToken(pools.evolution, project.symbol)}</td>
         <td>${formatToken(pools.fortune, project.symbol)}</td>
         <td>${formatToken(pools.risk, project.symbol)}</td>
@@ -565,7 +599,7 @@ function renderRewardProjects() {
   if (!container) return;
 
   if (state.projects.length === 0) {
-    container.innerHTML = emptyMarkup("gift", "暂无奖励数据", "读取神兽项目后，可在这里选择对应兽巢查看可领取分红。");
+    container.innerHTML = emptyMarkup("gift", "暂无奖励数据", "读取神兽项目后，可在这里选择兽巢查看可领取分红。");
     refreshIcons();
     return;
   }
@@ -580,14 +614,15 @@ function renderRewardProjects() {
       </button>
     `;
   }).join("");
+  refreshIcons();
 }
 
 async function renderIdentity() {
   if (!state.account) {
     setText("[data-holder-title]", "未连接钱包");
     setText("[data-holder-balance]", "持仓：--");
-    setText("[data-ticket-count]", "--");
-    setText("[data-lucky-number]", "--");
+    setText("[data-ticket-count]", "合约未开放");
+    setText("[data-lucky-number]", "合约未开放");
     setText("[data-withdrawable-dividend]", "--");
     return;
   }
@@ -596,8 +631,8 @@ async function renderIdentity() {
   if (!project) {
     setText("[data-holder-title]", "普通兽主");
     setText("[data-holder-balance]", `钱包：${shortAddress(state.account)}`);
-    setText("[data-ticket-count]", "--");
-    setText("[data-lucky-number]", "--");
+    setText("[data-ticket-count]", "合约未开放");
+    setText("[data-lucky-number]", "合约未开放");
     setText("[data-withdrawable-dividend]", "--");
     return;
   }
@@ -609,12 +644,10 @@ async function renderIdentity() {
   ]);
 
   const formalThreshold = ethers.parseEther("1000000");
-  const tickets = balance / ethers.parseEther("10000");
-
   setText("[data-holder-title]", balance >= formalThreshold ? "正式兽主" : balance > ZERO ? "普通兽主" : "观察者");
   setText("[data-holder-balance]", `持仓：${formatToken(balance, project.symbol)}`);
-  setText("[data-ticket-count]", `${tickets.toString()} 张`);
-  setText("[data-lucky-number]", state.account.slice(-2).toUpperCase());
+  setText("[data-ticket-count]", "合约未开放");
+  setText("[data-lucky-number]", "合约未开放");
   setText("[data-withdrawable-dividend]", formatToken(withdrawable, project.symbol));
 }
 
@@ -699,7 +732,7 @@ async function buildLocalMetadataURI(form, params) {
     image: localImage,
     storage: file ? "local-data-uri" : "generated-no-image",
     attributes: [
-      { trait_type: "神兽类型", value: BEAST_RUNES[params.beastType] || "自定义" },
+      { trait_type: "神兽类型", value: BEAST_TYPE_NAMES[params.beastType] || "自定义" },
       { trait_type: "元数据来源", value: file ? "本地图片" : "前端生成" }
     ]
   });
@@ -842,6 +875,13 @@ async function ensureWritable() {
 }
 
 function shortError(error) {
+  const message = error?.shortMessage || error?.reason || error?.message?.split("\n")[0] || "";
+  if (error?.code === "BAD_DATA" || message.includes("could not decode result data")) {
+    return "当前地址不是如意神兽发射台合约，请重新部署或填写正确地址";
+  }
+  if (message.includes("ECONNREFUSED") || message.includes("failed to detect network")) {
+    return "RPC 未连接，请先启动本地链或检查网络配置";
+  }
   return error?.shortMessage || error?.reason || error?.message?.split("\n")[0] || "未知错误";
 }
 
@@ -902,10 +942,6 @@ function setActiveButton(button) {
   button.classList.add("active");
 }
 
-function navigateTo(selector) {
-  showPage(pageFromHash(selector));
-}
-
 function bindEvents() {
   $("[data-address-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -952,7 +988,9 @@ function bindEvents() {
       state.selectedProjectId = Number(projectId);
       renderAllViews();
       await renderIdentity();
-      showPage("rank");
+      if (!button.closest("[data-reward-projects]")) {
+        showPage("rank");
+      }
       return;
     }
 
@@ -1003,7 +1041,7 @@ async function bootstrap() {
       await loadProjects();
     }
   } catch (error) {
-    console.error(error);
+    console.warn(error);
     updateConnectionStatus(shortError(error), false);
     clearChainData();
   }

@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>如意神兽发射台</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260615" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="侧边栏">
+      <aside class="sidebar" aria-label="侧边导航">
         <a class="brand" href="#home" aria-label="如意神兽发射台">
           <span class="brand-mark" aria-hidden="true">R</span>
           <span class="brand-copy">
@@ -20,32 +20,18 @@
         </a>
 
         <nav class="side-nav" aria-label="主菜单">
-          <button class="nav-item active" type="button" data-nav="#home">
-            <span class="nav-icon"><i data-lucide="home"></i></span><span>首页</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#beasts">
-            <span class="nav-icon"><i data-lucide="paw-print"></i></span><span>神兽大厅</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#create">
-            <span class="nav-icon"><i data-lucide="sparkles"></i></span><span>创建神兽</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#rank">
-            <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span>进化榜</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#reward">
-            <span class="nav-icon"><i data-lucide="gift"></i></span><span>奖励中心</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#data">
-            <span class="nav-icon"><i data-lucide="pie-chart"></i></span><span>数据中心</span>
-          </button>
-          <button class="nav-item" type="button" data-nav="#help">
-            <span class="nav-icon"><i data-lucide="message-circle-question"></i></span><span>帮助中心</span>
-          </button>
+          <button class="nav-item active" type="button" data-nav="#home"><span class="nav-icon"><i data-lucide="home"></i></span><span>首页</span></button>
+          <button class="nav-item" type="button" data-nav="#beasts"><span class="nav-icon"><i data-lucide="paw-print"></i></span><span>神兽大厅</span></button>
+          <button class="nav-item" type="button" data-nav="#create"><span class="nav-icon"><i data-lucide="sparkles"></i></span><span>创建神兽</span></button>
+          <button class="nav-item" type="button" data-nav="#rank"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span>进化榜</span></button>
+          <button class="nav-item" type="button" data-nav="#reward"><span class="nav-icon"><i data-lucide="gift"></i></span><span>奖励中心</span></button>
+          <button class="nav-item" type="button" data-nav="#data"><span class="nav-icon"><i data-lucide="pie-chart"></i></span><span>数据中心</span></button>
+          <button class="nav-item" type="button" data-nav="#help"><span class="nav-icon"><i data-lucide="message-circle-question"></i></span><span>帮助中心</span></button>
         </nav>
 
         <section class="creator-callout">
-          <p>成为创世兽主</p>
-          <strong>创建第一只链上神兽，交易喂养，进化分红。</strong>
+          <p>创建链上神兽</p>
+          <strong>发行专属 Token，交易喂养，灵气满格后进化分红。</strong>
           <button class="gold-button small" type="button" data-nav="#create">立即创建</button>
         </section>
 
@@ -56,7 +42,7 @@
             <div><dt>已进化神兽</dt><dd data-stat="evolvedCount">--</dd></div>
             <div><dt>累计销毁</dt><dd data-stat="totalBurned">--</dd></div>
             <div><dt>分红储备</dt><dd data-stat="dividendReserve">--</dd></div>
-            <div><dt>累计分红释放</dt><dd data-stat="dividendsDistributed">--</dd></div>
+            <div><dt>平台税收</dt><dd data-stat="platformTaxShare">20%</dd></div>
             <div><dt>当前网络</dt><dd data-stat="networkName">--</dd></div>
           </dl>
         </section>
@@ -100,7 +86,7 @@
                 <p class="eyebrow">RUIYI BEAST LAUNCHPAD</p>
                 <h1 id="hero-title">链上神兽孵化场</h1>
                 <p class="hero-subtitle">创建神兽，交易喂养，满级进化</p>
-                <p class="hero-note">当前页面已接入合约读取，数据来自链上项目与税池。</p>
+                <p class="hero-note">项目、灵气、税池、销毁和分红均从合约读取。</p>
                 <div class="hero-actions">
                   <button class="gold-button" type="button" data-nav="#create"><i data-lucide="sparkles"></i><span>创建神兽</span></button>
                   <button class="ghost-button" type="button" data-action="select-first"><i data-lucide="flame"></i><span>进入兽巢</span></button>
@@ -121,7 +107,7 @@
 
             <section class="status-strip" aria-label="神兽状态筛选">
               <button class="status-card active" type="button" data-stage-filter="all"><span>全部神兽</span><strong data-stage-count="all">0</strong></button>
-              <button class="status-card" type="button" data-stage-filter="0"><span>孵化中</span><strong data-stage-count="0">0</strong></button>
+              <button class="status-card" type="button" data-stage-filter="0"><span>神兽蛋</span><strong data-stage-count="0">0</strong></button>
               <button class="status-card" type="button" data-stage-filter="1"><span>幼兽</span><strong data-stage-count="1">0</strong></button>
               <button class="status-card" type="button" data-stage-filter="2"><span>成长期</span><strong data-stage-count="2">0</strong></button>
               <button class="status-card" type="button" data-stage-filter="ready"><span>可进化</span><strong data-stage-count="ready">0</strong></button>
@@ -153,7 +139,7 @@
                 <div class="detail-metric"><span>阶段</span><strong data-selected-stage>--</strong></div>
                 <div class="detail-metric"><span>灵气进度</span><strong data-selected-progress>--</strong></div>
                 <div class="detail-metric"><span>奖励池</span><strong data-selected-reward>--</strong></div>
-                <div class="detail-metric"><span>销毁累计</span><strong data-selected-burned>--</strong></div>
+                <div class="detail-metric"><span>平台金库</span><strong data-selected-treasury>--</strong></div>
               </div>
               <div class="progress-line selected-progress">
                 <label>灵气值 <strong data-selected-aura-label>--</strong></label>
@@ -171,18 +157,9 @@
                 <span class="contract-pill">创建费用：<b data-creation-fee>--</b></span>
               </div>
               <form class="create-form" data-create-form>
-                <label>
-                  <span>神兽名称</span>
-                  <input name="beastName" type="text" placeholder="Golden Qilin" required />
-                </label>
-                <label>
-                  <span>Token 名称</span>
-                  <input name="tokenName" type="text" placeholder="Golden Qilin" required />
-                </label>
-                <label>
-                  <span>Token 符号</span>
-                  <input name="tokenSymbol" type="text" placeholder="GQLN" required />
-                </label>
+                <label><span>神兽名称</span><input name="beastName" type="text" placeholder="金曜麒麟" required /></label>
+                <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="Golden Qilin" required /></label>
+                <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="GQLN" required /></label>
                 <label>
                   <span>神兽类型</span>
                   <select name="beastType">
@@ -196,19 +173,13 @@
                     <option value="7">自定义</option>
                   </select>
                 </label>
-                <label>
-                  <span>总供应量</span>
-                  <input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" />
-                </label>
-                <label>
-                  <span>进化阈值</span>
-                  <input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" />
-                </label>
+                <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
+                <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
                 <label class="form-wide upload-field">
                   <span>本地神兽图片</span>
                   <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
                   <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-                  <small>可选，前端会生成本地 data 元数据，不上传 IPFS。</small>
+                  <small>可选，前端会生成本地 data 元数据 URI，不上传 IPFS。</small>
                 </label>
                 <div class="upload-preview" data-upload-preview>
                   <span class="upload-sigil">兽</span>
@@ -233,7 +204,7 @@
                     <label>灵气值 <strong data-next-progress>--</strong></label>
                     <div><span data-next-bar style="width: 0%"></span></div>
                   </div>
-                  <p data-next-desc>创建或读取项目后自动更新。</p>
+                  <p data-next-desc>读取项目后自动更新。</p>
                 </div>
               </div>
               <button class="gold-button full" type="button" data-action="select-next">进入兽巢</button>
@@ -249,8 +220,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>我的灵签</span><strong data-ticket-count>--</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>--</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>合约未开放</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>合约未开放</strong></div>
               </div>
               <button class="outline-button full" type="button" data-action="connect-wallet">连接钱包</button>
             </section>
@@ -263,7 +234,7 @@
                 <button type="button" data-action="claim-dividends">领取</button>
               </div>
               <div class="reward-row disabled">
-                <span><i data-lucide="gem"></i>灵签奖励</span>
+                <span><i data-lucide="gem"></i>灵符奖励</span>
                 <strong>合约未开放</strong>
                 <button type="button" disabled>待开放</button>
               </div>
@@ -275,21 +246,21 @@
               <button class="gold-button full" type="button" data-action="claim-dividends">领取分红</button>
             </section>
 
-            <section class="notice-card">
-              <h2>接入说明</h2>
-              <ul>
-                <li><span>部署脚本会自动生成前端地址配置</span><time>真实</time></li>
-                <li><span>神兽列表、灵气、税池来自合约读取</span><time>链上</time></li>
-                <li><span>灵签和号码奖励需后续扩展对应合约</span><time>P2</time></li>
-              </ul>
+            <section class="tax-card">
+              <h2>税收机制</h2>
+              <div class="tax-grid">
+                <div><span>买入税</span><strong data-tax-buy>--</strong></div>
+                <div><span>卖出税</span><strong data-tax-sell>--</strong></div>
+                <div><span>平台税收</span><strong data-tax-platform>20%</strong></div>
+              </div>
             </section>
 
             <section class="mechanism-card">
-              <h2>机制速览</h2>
+              <h2>机制流转</h2>
               <div class="mechanism-flow" aria-label="机制流程">
                 <span>创建</span>
                 <span>交易</span>
-                <span>销毁</span>
+                <span>税池</span>
                 <span>分红</span>
                 <span>进化</span>
               </div>
@@ -302,15 +273,12 @@
             <div>
               <span>BEAST HALL</span>
               <h1>神兽大厅</h1>
-              <p>查看所有链上创建的神兽项目，进入兽巢查看灵气、税池、销毁和分红数据。</p>
+              <p>查看链上创建的神兽项目，进入兽巢查看灵气、税池、销毁和分红数据。</p>
             </div>
             <button class="gold-button" type="button" data-nav="#create"><i data-lucide="sparkles"></i><span>创建神兽</span></button>
           </div>
           <div class="page-toolbar">
-            <label>
-              <span>搜索神兽</span>
-              <input type="text" data-project-search placeholder="名称 / 符号 / Token 地址" />
-            </label>
+            <label><span>搜索神兽</span><input type="text" data-project-search placeholder="名称 / 符号 / Token 地址" /></label>
             <label>
               <span>排序方式</span>
               <select data-project-sort>
@@ -330,23 +298,14 @@
             <div>
               <span>CREATE BEAST</span>
               <h1>创建神兽</h1>
-              <p>填写神兽资料后调用发射台合约，上链部署专属神兽 Token。</p>
+              <p>填写资料后调用发射台合约，上链部署专属神兽 Token。</p>
             </div>
             <span class="contract-pill">创建费用：<b data-creation-fee>--</b></span>
           </div>
           <form class="create-form create-form-page" data-create-form>
-            <label>
-              <span>神兽名称</span>
-              <input name="beastName" type="text" placeholder="Golden Qilin" required />
-            </label>
-            <label>
-              <span>Token 名称</span>
-              <input name="tokenName" type="text" placeholder="Golden Qilin" required />
-            </label>
-            <label>
-              <span>Token 符号</span>
-              <input name="tokenSymbol" type="text" placeholder="GQLN" required />
-            </label>
+            <label><span>神兽名称</span><input name="beastName" type="text" placeholder="金曜麒麟" required /></label>
+            <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="Golden Qilin" required /></label>
+            <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="GQLN" required /></label>
             <label>
               <span>神兽类型</span>
               <select name="beastType">
@@ -360,19 +319,13 @@
                 <option value="7">自定义</option>
               </select>
             </label>
-            <label>
-              <span>总供应量</span>
-              <input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" />
-            </label>
-            <label>
-              <span>进化阈值</span>
-              <input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" />
-            </label>
+            <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
+            <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
             <label class="form-wide upload-field">
               <span>本地神兽图片</span>
               <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
               <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-              <small>可选，前端会生成本地 data 元数据，不上传 IPFS。</small>
+              <small>可选，前端会生成本地 data 元数据 URI，不上传 IPFS。</small>
             </label>
             <div class="upload-preview" data-upload-preview>
               <span class="upload-sigil">兽</span>
@@ -404,7 +357,7 @@
                     <th>阶段</th>
                     <th>灵气</th>
                     <th>奖励池</th>
-                    <th>销毁</th>
+                    <th>平台金库</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -442,7 +395,7 @@
             <div>
               <span>REWARD CENTER</span>
               <h1>奖励中心</h1>
-              <p>连接钱包后查看当前兽巢的可领取分红，灵签奖励和号码奖励等待后续合约开放。</p>
+              <p>连接钱包后查看当前兽巢可领取分红，未接入合约的奖励保持待开放状态。</p>
             </div>
             <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
           </div>
@@ -457,8 +410,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>我的灵签</span><strong data-ticket-count>--</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>--</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>合约未开放</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>合约未开放</strong></div>
               </div>
             </section>
             <section class="reward-card reward-main">
@@ -469,7 +422,7 @@
                 <button type="button" data-action="claim-dividends">领取</button>
               </div>
               <div class="reward-row disabled">
-                <span><i data-lucide="gem"></i>灵签奖励</span>
+                <span><i data-lucide="gem"></i>灵符奖励</span>
                 <strong>合约未开放</strong>
                 <button type="button" disabled>待开放</button>
               </div>
@@ -489,7 +442,7 @@
             <div>
               <span>DATA CENTER</span>
               <h1>数据中心</h1>
-              <p>汇总发射台合约、税池、销毁和分红储备数据。</p>
+              <p>汇总发射台合约、税池、平台金库、销毁和分红储备数据。</p>
             </div>
             <span class="contract-pill" data-contract-launchpad>Launchpad: --</span>
           </div>
@@ -499,18 +452,20 @@
             <div class="detail-metric"><span>累计销毁</span><strong data-stat="totalBurned">--</strong></div>
             <div class="detail-metric"><span>分红储备</span><strong data-stat="dividendReserve">--</strong></div>
             <div class="detail-metric"><span>累计分红释放</span><strong data-stat="dividendsDistributed">--</strong></div>
-            <div class="detail-metric"><span>当前网络</span><strong data-stat="networkName">--</strong></div>
+            <div class="detail-metric"><span>平台税收</span><strong data-stat="platformTaxShare">20%</strong></div>
           </div>
           <section class="rank-table-card">
-            <table class="data-table">
+            <table class="data-table pool-table">
               <thead>
                 <tr>
                   <th>神兽</th>
+                  <th>买税</th>
+                  <th>卖税</th>
                   <th>进化池</th>
-                  <th>福运池</th>
+                  <th>幸运池</th>
                   <th>风险池</th>
                   <th>奖励池</th>
-                  <th>金库</th>
+                  <th>平台金库</th>
                   <th>销毁</th>
                   <th>分红储备</th>
                 </tr>
@@ -525,7 +480,7 @@
             <div>
               <span>HELP CENTER</span>
               <h1>帮助中心</h1>
-              <p>这里整理部署、钱包、合约功能和后续扩展说明。</p>
+              <p>部署、钱包、合约功能和后续扩展集中放在这里查看。</p>
             </div>
           </div>
           <div class="help-grid">
@@ -537,17 +492,17 @@
             <article class="help-card">
               <i data-lucide="wallet"></i>
               <h2>钱包网络</h2>
-              <p>本地链 RPC 为 `http://127.0.0.1:8545`，Chain ID 为 `31337`。</p>
+              <p>本地 RPC 为 `http://127.0.0.1:8545`，Chain ID 为 `31337`。</p>
             </article>
             <article class="help-card">
               <i data-lucide="coins"></i>
               <h2>已接入功能</h2>
-              <p>创建神兽、读取项目、灵气进度、税池、销毁、分红领取、触发进化。</p>
+              <p>创建神兽、读取项目、灵气进度、税池、平台税、销毁、分红领取、触发进化。</p>
             </article>
             <article class="help-card">
               <i data-lucide="badge-help"></i>
               <h2>待扩展功能</h2>
-              <p>灵签随机奖励、本命号码奖励、DEX 自动回购、正式测试网配置。</p>
+              <p>灵符随机奖励、本命号码奖励、DEX 自动回购、正式测试网配置。</p>
             </article>
           </div>
         </section>
@@ -563,6 +518,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260615"></script>
   </body>
 </html>
