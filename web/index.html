@@ -209,18 +209,25 @@
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
                 <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
                 <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
-                <label class="form-wide upload-field">
-                  <span>神兽图片</span>
-                  <strong class="file-picker"><i data-lucide="upload"></i>选择图片</strong>
-                  <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-                  <small>选择后可预览，未选也能创建。</small>
-                </label>
-                <div class="upload-preview" data-upload-preview>
-                  <span class="upload-sigil">兽</span>
-                  <div>
-                    <strong>未选择图片</strong>
-                    <small>选择后会在这里预览。</small>
+                <div class="form-wide avatar-upload" data-avatar-upload>
+                  <span>神兽头像</span>
+                  <label class="avatar-drop" data-avatar-drop>
+                    <input name="beastImage" type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" data-image-upload />
+                    <span class="avatar-preview" data-avatar-preview><i data-lucide="plus"></i></span>
+                    <span class="avatar-copy">
+                      <strong data-avatar-title>上传神兽头像</strong>
+                      <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，会自动压缩后加入部署信息。</em>
+                    </span>
+                  </label>
+                  <div class="avatar-actions" data-avatar-actions hidden>
+                    <label>
+                      <i data-lucide="image-plus"></i>
+                      更换
+                      <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" data-image-upload />
+                    </label>
+                    <button type="button" data-avatar-remove><i data-lucide="trash-2"></i>移除</button>
                   </div>
+                  <p class="avatar-error" data-avatar-error hidden></p>
                 </div>
                 <button class="gold-button form-submit" type="submit"><i data-lucide="rocket"></i><span>上链创建</span></button>
               </form>
@@ -360,18 +367,25 @@
             <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
             <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
             <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
-            <label class="form-wide upload-field">
-              <span>神兽图片</span>
-              <strong class="file-picker"><i data-lucide="upload"></i>选择图片</strong>
-              <input name="beastImage" type="file" accept="image/png,image/jpeg,image/webp" data-image-upload />
-              <small>选择后可预览，未选也能创建。</small>
-            </label>
-            <div class="upload-preview" data-upload-preview>
-              <span class="upload-sigil">兽</span>
-              <div>
-                <strong>未选择图片</strong>
-                <small>选择后会在这里预览。</small>
+            <div class="form-wide avatar-upload" data-avatar-upload>
+              <span>神兽头像</span>
+              <label class="avatar-drop" data-avatar-drop>
+                <input name="beastImage" type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" data-image-upload />
+                <span class="avatar-preview" data-avatar-preview><i data-lucide="plus"></i></span>
+                <span class="avatar-copy">
+                  <strong data-avatar-title>上传神兽头像</strong>
+                  <em>支持 PNG、JPEG、SVG、GIF、WebP，建议小于 1MB，会自动压缩后加入部署信息。</em>
+                </span>
+              </label>
+              <div class="avatar-actions" data-avatar-actions hidden>
+                <label>
+                  <i data-lucide="image-plus"></i>
+                  更换
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" data-image-upload />
+                </label>
+                <button type="button" data-avatar-remove><i data-lucide="trash-2"></i>移除</button>
               </div>
+              <p class="avatar-error" data-avatar-error hidden></p>
             </div>
             <button class="gold-button form-submit" type="submit"><i data-lucide="rocket"></i><span>上链创建</span></button>
           </form>

@@ -66,6 +66,13 @@ const ZERO = 0n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
+const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
+const AVATAR_MAX_SOURCE_BYTES = 1024 * 1024;
+const AVATAR_MAX_METADATA_BYTES = 220 * 1024;
+const AVATAR_CANVAS_SIZE = 256;
+const MAX_ONCHAIN_METADATA_BYTES = 260_000;
+const MAX_METADATA_TEXT_LENGTH = 480;
+const avatarByForm = new WeakMap();
 
 const state = {
   account: "",
@@ -212,6 +219,8 @@ function refreshIcons() {
 }
 
 function normalizeProject(project) {
+  const metadataURI = project.metadataURI ?? project[6];
+  const metadata = parseProjectMetadata(metadataURI);
   return {
     id: Number(project.id ?? project[0]),
     token: project.token ?? project[1],
@@ -219,7 +228,9 @@ function normalizeProject(project) {
     beastName: project.beastName ?? project[3],
     tokenName: project.tokenName ?? project[4],
     tokenSymbol: project.tokenSymbol ?? project[5],
-    metadataURI: project.metadataURI ?? project[6],
+    metadataURI,
+    metadata,
+    avatar: metadata.avatar || metadata.image || "",
     initialSupply: project.initialSupply ?? project[7],
     auraThreshold: project.auraThreshold ?? project[8],
     beastType: Number(project.beastType ?? project[9]),
@@ -236,7 +247,61 @@ function beastTone(project) {
 }
 
 function beastSigilMarkup(project, size = "") {
+  const avatar = projectAvatar(project);
+  if (avatar) {
+    return `<span class="beast-sigil avatar ${size}" data-beast-type="${project.beastType}" aria-hidden="true"><img src="${escapeHtml(avatar)}" alt="" loading="lazy" /></span>`;
+  }
   return `<span class="beast-sigil ${size} ${beastTone(project)}" data-beast-type="${project.beastType}" aria-hidden="true">${beastRune(project)}</span>`;
+}
+
+function beastArtMarkup(project) {
+  const avatar = projectAvatar(project);
+  if (avatar) {
+    return `
+      <div class="beast-art has-avatar">
+        <img src="${escapeHtml(avatar)}" alt="" loading="lazy" />
+      </div>
+    `;
+  }
+
+  return `
+    <div class="beast-art ${beastTone(project)}">
+      <span>${beastRune(project)}</span>
+    </div>
+  `;
+}
+
+function projectAvatar(project) {
+  return String(project?.avatar || project?.metadata?.avatar || project?.metadata?.image || "").trim();
+}
+
+function parseProjectMetadata(metadataURI) {
+  const raw = String(metadataURI || "").trim();
+  if (!raw) return {};
+
+  try {
+    if (raw.startsWith("data:")) {
+      const base64 = raw.match(/^data:application\/json[^,]*;base64,(.*)$/i)?.[1];
+      if (base64) {
+        return JSON.parse(decodeURIComponent(escape(window.atob(base64))));
+      }
+
+      const encoded = raw.split(",").slice(1).join(",");
+      return encoded ? JSON.parse(decodeURIComponent(encoded)) : {};
+    }
+
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function trimMetadataText(value, maxLength = MAX_METADATA_TEXT_LENGTH) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function readTextBytes(value) {
+  return new Blob([String(value ?? "")]).size;
 }
 
 function getStoredLaunchpadAddress() {
@@ -560,9 +625,7 @@ function projectCardMarkup(project, index) {
     <article class="beast-card ${selectedClass}">
       <div class="rank-badge ${rankClass}">${rank}</div>
       <span class="stage-badge ${stageClass}">${project.canEvolve ? "可进化" : STAGE_NAMES[project.stage] || "未知"}</span>
-      <div class="beast-art ${beastTone(project)}">
-        <span>${beastRune(project)}</span>
-      </div>
+      ${beastArtMarkup(project)}
       <div class="beast-body">
         <div class="beast-heading">
           <h3>${escapeHtml(project.beastName || project.tokenName)}</h3>
@@ -695,9 +758,10 @@ function renderNextProject() {
 
   const sigil = $("[data-next-sigil]");
   if (sigil) {
-    sigil.textContent = beastRune(next);
+    const avatar = projectAvatar(next);
+    sigil.innerHTML = avatar ? `<img src="${escapeHtml(avatar)}" alt="" loading="lazy" />` : beastRune(next);
     sigil.dataset.beastType = String(next.beastType);
-    sigil.className = `beast-sigil mini ${beastTone(next)}`;
+    sigil.className = avatar ? "beast-sigil mini avatar" : `beast-sigil mini ${beastTone(next)}`;
   }
   setText("[data-next-name]", next.beastName);
   setText("[data-next-symbol]", next.symbol);
@@ -863,105 +927,169 @@ async function connectWallet() {
   }
 }
 
-function encodeJsonDataUri(payload) {
-  const json = JSON.stringify(payload);
-  const encoded = btoa(unescape(encodeURIComponent(json)));
-  return `data:application/json;base64,${encoded}`;
-}
-
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error || new Error("图片读取失败"));
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("avatar-invalid"));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error("avatar-invalid"));
     reader.readAsDataURL(file);
   });
 }
 
-function compressImageDataUrl(dataUrl) {
-  return new Promise((resolve) => {
+function loadDataUrlImage(dataUrl) {
+  return new Promise((resolve, reject) => {
     const image = new Image();
-    image.onload = () => {
-      const maxSize = 420;
-      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) {
-        resolve(dataUrl);
-        return;
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/webp", 0.62));
-    };
-    image.onerror = () => resolve(dataUrl);
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("avatar-invalid"));
     image.src = dataUrl;
   });
 }
 
-async function buildLocalMetadataURI(form, params) {
-  const file = form.querySelector("[data-image-upload]")?.files?.[0] || null;
-  let localImage = "";
-
-  if (file) {
-    if (!file.type.startsWith("image/")) {
-      throw new Error("请选择图片文件");
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      throw new Error("图片不能超过 4MB");
-    }
-    localImage = await compressImageDataUrl(await readFileAsDataUrl(file));
+async function normalizeAvatarFile(file) {
+  if (!AVATAR_ACCEPTED_TYPES.includes(file.type)) {
+    throw new Error("avatar-invalid");
   }
 
-  return encodeJsonDataUri({
-    name: params.beastName,
-    tokenName: params.tokenName,
-    symbol: params.tokenSymbol,
+  if (file.size > AVATAR_MAX_SOURCE_BYTES) {
+    throw new Error("avatar-source-large");
+  }
+
+  const avatar = file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/webp"
+    ? await compressRasterAvatar(file)
+    : await readFileAsDataUrl(file);
+
+  if (readTextBytes(avatar) > AVATAR_MAX_METADATA_BYTES) {
+    throw new Error("avatar-metadata-large");
+  }
+
+  return avatar;
+}
+
+async function compressRasterAvatar(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadDataUrlImage(dataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const side = Math.min(width, height);
+  const outputSize = Math.max(1, Math.min(AVATAR_CANVAS_SIZE, side));
+  const canvas = document.createElement("canvas");
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return dataUrl;
+  }
+
+  const sourceX = (width - side) / 2;
+  const sourceY = (height - side) / 2;
+  context.drawImage(image, sourceX, sourceY, side, side, 0, 0, outputSize, outputSize);
+
+  return canvas.toDataURL("image/webp", 0.82);
+}
+
+function buildProjectMetadataURI(form, params) {
+  const metadata = {
+    name: trimMetadataText(params.beastName),
+    tokenName: trimMetadataText(params.tokenName),
+    symbol: trimMetadataText(params.tokenSymbol, 32),
     beastType: params.beastType,
-    image: localImage,
-    storage: file ? "local-data-uri" : "generated-no-image",
+    avatar: avatarByForm.get(form) || "",
     attributes: [
-      { trait_type: "神兽类型", value: BEAST_TYPE_NAMES[params.beastType] || "自定义" },
-      { trait_type: "元数据来源", value: file ? "本地图片" : "前端生成" }
+      { trait_type: "神兽类型", value: BEAST_TYPE_NAMES[params.beastType] || "自定义" }
     ]
-  });
+  };
+
+  const output = JSON.stringify(metadata);
+  if (readTextBytes(output) > MAX_ONCHAIN_METADATA_BYTES) {
+    throw new Error("avatar-metadata-large");
+  }
+
+  return output;
 }
 
 async function updateUploadPreview(input) {
-  const preview = input.closest("form")?.querySelector("[data-upload-preview]");
-  if (!preview) return;
-
+  const form = input.closest("form");
+  const upload = input.closest("[data-avatar-upload]");
   const file = input.files?.[0];
-  const title = preview.querySelector("strong");
-  const desc = preview.querySelector("small");
-  const sigil = preview.querySelector(".upload-sigil");
-  preview.dataset.hasFile = file ? "true" : "false";
+  if (!form || !upload || !file) return;
 
-  if (!file) {
-    preview.dataset.hasImage = "false";
-    if (sigil) {
-      sigil.style.backgroundImage = "";
-      sigil.textContent = "兽";
+  setAvatarError(upload, "");
+
+  try {
+    const avatar = await normalizeAvatarFile(file);
+    avatarByForm.set(form, avatar);
+    renderAvatarUpload(upload, avatar);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "avatar-invalid") {
+      setAvatarError(upload, "请选择 PNG、JPEG、SVG、GIF 或 WebP 图片。");
+    } else if (message === "avatar-source-large") {
+      setAvatarError(upload, "图片不能超过 1MB。");
+    } else {
+      setAvatarError(upload, "头像压缩后仍然偏大，请换一张更小的图。");
     }
-    if (title) title.textContent = "未选择图片";
-    if (desc) desc.textContent = "选择后会在这里预览。";
-    return;
+  } finally {
+    input.value = "";
   }
-
-  if (sigil && file.type.startsWith("image/")) {
-    const dataUrl = await readFileAsDataUrl(file);
-    sigil.style.backgroundImage = `url("${dataUrl}")`;
-    sigil.textContent = "";
-    preview.dataset.hasImage = "true";
-  }
-  if (title) title.textContent = file.name;
-  if (desc) desc.textContent = "图片已选择，可继续创建。";
 }
 
 function resetUploadPreview(form) {
-  const input = form.querySelector("[data-image-upload]");
-  if (input) updateUploadPreview(input);
+  avatarByForm.delete(form);
+  $$("[data-avatar-upload]", form).forEach((upload) => {
+    renderAvatarUpload(upload, "");
+    setAvatarError(upload, "");
+    $$("input[type='file']", upload).forEach((input) => {
+      input.value = "";
+    });
+  });
+}
+
+function removeAvatarUpload(button) {
+  const form = button.closest("form");
+  const upload = button.closest("[data-avatar-upload]");
+  if (!form || !upload) return;
+
+  avatarByForm.delete(form);
+  renderAvatarUpload(upload, "");
+  setAvatarError(upload, "");
+  $$("input[type='file']", upload).forEach((input) => {
+    input.value = "";
+  });
+}
+
+function renderAvatarUpload(upload, avatar) {
+  const drop = upload.querySelector("[data-avatar-drop]");
+  const preview = upload.querySelector("[data-avatar-preview]");
+  const title = upload.querySelector("[data-avatar-title]");
+  const actions = upload.querySelector("[data-avatar-actions]");
+
+  upload.dataset.hasAvatar = avatar ? "true" : "false";
+  drop?.classList.toggle("has-avatar", Boolean(avatar));
+  if (preview) {
+    preview.innerHTML = avatar ? `<img src="${escapeHtml(avatar)}" alt="" />` : `<i data-lucide="plus"></i>`;
+  }
+  if (title) {
+    title.textContent = avatar ? "头像已加入部署信息" : "上传神兽头像";
+  }
+  if (actions) {
+    actions.hidden = !avatar;
+  }
+  refreshIcons();
+}
+
+function setAvatarError(upload, message) {
+  const error = upload.querySelector("[data-avatar-error]");
+  if (!error) return;
+
+  error.textContent = message;
+  error.hidden = !message;
 }
 
 async function createBeast(event) {
@@ -1015,7 +1143,7 @@ async function createBeast(event) {
       params.fundsReceiver = fundsReceiver;
     }
 
-    params.metadataURI = await buildLocalMetadataURI(form, params);
+    params.metadataURI = buildProjectMetadataURI(form, params);
     showToast("创建交易已发起，请在钱包确认。");
     const launchpadWithSigner = state.launchpad.connect(state.signer);
     const tx = await launchpadWithSigner.createBeast(
@@ -1409,6 +1537,11 @@ function bindEvents() {
     if (!button) return;
 
     setActiveButton(button);
+
+    if (button.matches("[data-avatar-remove]")) {
+      removeAvatarUpload(button);
+      return;
+    }
 
     const nav = button.dataset.nav;
     if (nav) {
