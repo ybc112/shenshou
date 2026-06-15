@@ -1,0 +1,66 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const { ethers } = require("hardhat");
+
+const beasts = [
+  ["Golden Qilin", "Golden Qilin", "GQLN", "ipfs://golden-qilin", 0, "100"],
+  ["Phoenix Rise", "Phoenix Rise", "PHX", "ipfs://phoenix-rise", 1, "200"],
+  ["Azure Dragon", "Azure Dragon", "AZD", "ipfs://azure-dragon", 4, "300"],
+  ["White Tiger", "White Tiger", "WHT", "ipfs://white-tiger", 5, "400"]
+];
+
+async function main() {
+  const deploymentPath = path.join(__dirname, "..", "web", "deployments", "latest.json");
+  if (!fs.existsSync(deploymentPath)) {
+    throw new Error("Missing web/deployments/latest.json. Run npm run deploy:local first.");
+  }
+
+  const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+  const [deployer, creator, pair, alice, bob] = await ethers.getSigners();
+  const launchpad = await ethers.getContractAt("RuyiBeastLaunchpad", deployment.launchpadAddress);
+
+  const countBefore = Number(await launchpad.projectCount());
+  if (countBefore > 0) {
+    console.log(`Seed skipped: ${countBefore} projects already exist.`);
+    return;
+  }
+
+  for (const [beastName, tokenName, tokenSymbol, metadataURI, beastType, threshold] of beasts) {
+    const tx = await launchpad.connect(creator).createBeast({
+      beastName,
+      tokenName,
+      tokenSymbol,
+      metadataURI,
+      initialSupply: ethers.parseEther("1000000"),
+      auraThreshold: ethers.parseEther(threshold),
+      beastType
+    });
+    await tx.wait();
+  }
+
+  const count = Number(await launchpad.projectCount());
+  for (let i = 0; i < count; i++) {
+    const project = await launchpad.getProject(i);
+    const token = await ethers.getContractAt("RuyiBeastToken", project.token);
+
+    await (await token.connect(creator).setAutomatedMarketMakerPair(pair.address, true)).wait();
+    await (await token.connect(creator).transfer(pair.address, ethers.parseEther("100000"))).wait();
+    await (await token.connect(creator).enableTrading()).wait();
+
+    const buyAmount = ethers.parseEther(String(7000 + i * 1500));
+    await (await token.connect(pair).transfer(alice.address, buyAmount)).wait();
+    await (await token.connect(pair).transfer(bob.address, buyAmount / 2n)).wait();
+
+    if (i === 0) {
+      await (await token.connect(alice).triggerEvolution()).wait();
+    }
+  }
+
+  console.log(`Seeded ${count} real on-chain beast projects.`);
+  console.log(`Launchpad: ${deployment.launchpadAddress}`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
