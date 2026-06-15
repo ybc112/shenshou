@@ -3,11 +3,23 @@ const path = require("node:path");
 const { ethers } = require("hardhat");
 
 const beasts = [
-  ["Golden Qilin", "Golden Qilin", "GQLN", "ipfs://golden-qilin", 0, "100"],
-  ["Phoenix Rise", "Phoenix Rise", "PHX", "ipfs://phoenix-rise", 1, "200"],
-  ["Azure Dragon", "Azure Dragon", "AZD", "ipfs://azure-dragon", 4, "300"],
-  ["White Tiger", "White Tiger", "WHT", "ipfs://white-tiger", 5, "400"]
+  ["金曜麒麟", "Golden Qilin", "GQLN", 0, "100"],
+  ["赤羽凤凰", "Phoenix Rise", "PHX", 1, "200"],
+  ["苍曜青龙", "Azure Dragon", "AZD", 4, "300"],
+  ["银甲白虎", "White Tiger", "WHT", 5, "400"]
 ];
+
+function metadataURI(beastName, tokenName, tokenSymbol, beastType) {
+  const payload = {
+    name: beastName,
+    tokenName,
+    symbol: tokenSymbol,
+    beastType,
+    image: "",
+    storage: "local-seed-data-uri"
+  };
+  return `data:application/json;base64,${Buffer.from(JSON.stringify(payload)).toString("base64")}`;
+}
 
 async function main() {
   const deploymentPath = path.join(__dirname, "..", "web", "deployments", "latest.json");
@@ -25,15 +37,20 @@ async function main() {
     return;
   }
 
-  for (const [beastName, tokenName, tokenSymbol, metadataURI, beastType, threshold] of beasts) {
+  for (const [beastName, tokenName, tokenSymbol, beastType, threshold] of beasts) {
     const tx = await launchpad.connect(creator).createBeast({
       beastName,
       tokenName,
       tokenSymbol,
-      metadataURI,
+      metadataURI: metadataURI(beastName, tokenName, tokenSymbol, beastType),
       initialSupply: ethers.parseEther("1000000"),
       auraThreshold: ethers.parseEther(threshold),
-      beastType
+      beastType,
+      saleSupply: 0,
+      mintPrice: 0,
+      maxMintPerWallet: 0,
+      saleDeadline: 0,
+      fundsReceiver: ethers.ZeroAddress
     });
     await tx.wait();
   }

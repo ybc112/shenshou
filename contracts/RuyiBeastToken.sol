@@ -47,6 +47,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     FeeRates public sellFees;
 
     bool public tradingEnabled;
+    bool public controlsLocked;
     uint256 public maxTxAmount;
     uint256 public maxWalletAmount;
 
@@ -64,6 +65,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     uint256 private _dividendSupply;
 
     event TradingEnabled();
+    event ControlsLocked();
     event FeesUpdated(FeeRates buyFees, FeeRates sellFees);
     event FeeExemptUpdated(address indexed account, bool exempt);
     event TxLimitExemptUpdated(address indexed account, bool exempt);
@@ -95,6 +97,11 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
     modifier onlyVault() {
         require(msg.sender == vault, "RuyiToken: only vault");
+        _;
+    }
+
+    modifier controlsOpen() {
+        require(!controlsLocked, "RuyiToken: controls locked");
         _;
     }
 
@@ -139,6 +146,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         _setTxLimitExempt(address(this), true);
 
         _setExcludedFromDividends(vault_, true);
+        _setExcludedFromDividends(launchpad_, true);
         _setExcludedFromDividends(DEAD, true);
         _setExcludedFromDividends(address(this), true);
 
@@ -148,10 +156,15 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     function enableTrading() external onlyOwner {
         require(!tradingEnabled, "RuyiToken: trading enabled");
         tradingEnabled = true;
+        _lockControls();
         emit TradingEnabled();
     }
 
-    function setFees(FeeRates calldata newBuyFees, FeeRates calldata newSellFees) external onlyOwner {
+    function lockControls() external onlyOwner {
+        _lockControls();
+    }
+
+    function setFees(FeeRates calldata newBuyFees, FeeRates calldata newSellFees) external onlyOwner controlsOpen {
         require(_totalFeeBps(newBuyFees) <= MAX_BUY_TAX_BPS, "RuyiToken: buy tax too high");
         require(_totalFeeBps(newSellFees) <= MAX_SELL_TAX_BPS, "RuyiToken: sell tax too high");
 
@@ -161,7 +174,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         emit FeesUpdated(newBuyFees, newSellFees);
     }
 
-    function setAutomatedMarketMakerPair(address pair, bool enabled) external onlyOwner {
+    function setAutomatedMarketMakerPair(address pair, bool enabled) external onlyOwner controlsOpen {
         require(pair != address(0), "RuyiToken: zero pair");
         require(automatedMarketMakerPairs[pair] != enabled, "RuyiToken: unchanged");
 
@@ -172,19 +185,19 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         emit AutomatedMarketMakerPairUpdated(pair, enabled);
     }
 
-    function setFeeExempt(address account, bool exempt) external onlyOwner {
+    function setFeeExempt(address account, bool exempt) external onlyOwner controlsOpen {
         _setFeeExempt(account, exempt);
     }
 
-    function setTxLimitExempt(address account, bool exempt) external onlyOwner {
+    function setTxLimitExempt(address account, bool exempt) external onlyOwner controlsOpen {
         _setTxLimitExempt(account, exempt);
     }
 
-    function setExcludedFromDividends(address account, bool excluded) external onlyOwner {
+    function setExcludedFromDividends(address account, bool excluded) external onlyOwner controlsOpen {
         _setExcludedFromDividends(account, excluded);
     }
 
-    function setLimits(uint256 newMaxTxAmount, uint256 newMaxWalletAmount) external onlyOwner {
+    function setLimits(uint256 newMaxTxAmount, uint256 newMaxWalletAmount) external onlyOwner controlsOpen {
         require(newMaxTxAmount > 0, "RuyiToken: zero max tx");
         require(newMaxWalletAmount >= newMaxTxAmount, "RuyiToken: wallet lt tx");
 
@@ -194,7 +207,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         emit LimitsUpdated(newMaxTxAmount, newMaxWalletAmount);
     }
 
-    function setAuraThreshold(uint256 newAuraThreshold) external onlyOwner {
+    function setAuraThreshold(uint256 newAuraThreshold) external onlyOwner controlsOpen {
         require(newAuraThreshold > 0, "RuyiToken: zero threshold");
         auraThreshold = newAuraThreshold;
         emit AuraThresholdUpdated(newAuraThreshold);
@@ -291,7 +304,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         bool isBuy = automatedMarketMakerPairs[from];
         bool isSell = automatedMarketMakerPairs[to];
 
-        if (!tradingEnabled && (isBuy || isSell)) {
+        if (!tradingEnabled) {
             require(isFeeExempt[from] || isFeeExempt[to], "RuyiToken: trading disabled");
         }
 
@@ -421,6 +434,15 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         }
 
         emit ExcludedFromDividends(account, excluded);
+    }
+
+    function _lockControls() private {
+        if (controlsLocked) {
+            return;
+        }
+
+        controlsLocked = true;
+        emit ControlsLocked();
     }
 
     function _totalFeeBps(FeeRates memory fees) private pure returns (uint256) {

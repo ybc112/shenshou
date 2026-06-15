@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>如意神兽发射台</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./styles.css?v=20260615" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
@@ -145,6 +146,34 @@
                 <label>灵气值 <strong data-selected-aura-label>--</strong></label>
                 <div><span data-selected-aura-bar style="width: 0%"></span></div>
               </div>
+              <div class="sale-panel" data-sale-panel>
+                <div class="sale-head">
+                  <span>发射认购</span>
+                  <strong data-sale-status>--</strong>
+                </div>
+                <div class="sale-grid">
+                  <div><span>认购合约</span><strong data-sale-vault>--</strong></div>
+                  <div><span>剩余数量</span><strong data-sale-remaining>--</strong></div>
+                  <div><span>认购单价</span><strong data-sale-price>--</strong></div>
+                  <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
+                  <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
+                  <div><span>已募集</span><strong data-sale-raised>--</strong></div>
+                  <div><span>收款地址</span><strong data-sale-receiver>--</strong></div>
+                </div>
+                <form class="sale-form" data-sale-buy-form>
+                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="1000" /></label>
+                  <button class="gold-button" type="submit"><i data-lucide="ticket"></i><span>立即认购</span></button>
+                </form>
+                <form class="sale-form sale-owner-form" data-sale-owner-form>
+                  <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
+                  <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
+                </form>
+                <div class="button-row sale-actions">
+                  <button class="outline-button" type="button" data-action="claim-refund"><i data-lucide="rotate-ccw"></i><span>申请退款</span></button>
+                  <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
+                  <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
+                </div>
+              </div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
                 <button class="outline-button" type="button" data-action="copy-token"><i data-lucide="copy"></i><span>复制 Token 地址</span></button>
@@ -175,6 +204,11 @@
                 </label>
                 <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
                 <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
+                <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="0 = 不开启" /></label>
+                <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="0.001" /></label>
+                <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
+                <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+                <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
                 <label class="form-wide upload-field">
                   <span>本地神兽图片</span>
                   <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
@@ -321,6 +355,11 @@
             </label>
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="1000000000" /></label>
             <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="1000000" /></label>
+            <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="0 = 不开启" /></label>
+            <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="0.001" /></label>
+            <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="0 = 不限制" /></label>
+            <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+            <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
             <label class="form-wide upload-field">
               <span>本地神兽图片</span>
               <strong class="file-picker"><i data-lucide="upload"></i>选择本地图片</strong>
@@ -381,6 +420,34 @@
               <div class="progress-line selected-progress">
                 <label>灵气值 <strong data-selected-aura-label>--</strong></label>
                 <div><span data-selected-aura-bar style="width: 0%"></span></div>
+              </div>
+              <div class="sale-panel" data-sale-panel>
+                <div class="sale-head">
+                  <span>发射认购</span>
+                  <strong data-sale-status>--</strong>
+                </div>
+                <div class="sale-grid">
+                  <div><span>认购合约</span><strong data-sale-vault>--</strong></div>
+                  <div><span>剩余数量</span><strong data-sale-remaining>--</strong></div>
+                  <div><span>认购单价</span><strong data-sale-price>--</strong></div>
+                  <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
+                  <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
+                  <div><span>已募集</span><strong data-sale-raised>--</strong></div>
+                  <div><span>收款地址</span><strong data-sale-receiver>--</strong></div>
+                </div>
+                <form class="sale-form" data-sale-buy-form>
+                  <label><span>认购数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="1000" /></label>
+                  <button class="gold-button" type="submit"><i data-lucide="ticket"></i><span>立即认购</span></button>
+                </form>
+                <form class="sale-form sale-owner-form" data-sale-owner-form>
+                  <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
+                  <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
+                </form>
+                <div class="button-row sale-actions">
+                  <button class="outline-button" type="button" data-action="claim-refund"><i data-lucide="rotate-ccw"></i><span>申请退款</span></button>
+                  <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
+                  <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
+                </div>
               </div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
@@ -466,6 +533,7 @@
                   <th>风险池</th>
                   <th>奖励池</th>
                   <th>平台金库</th>
+                  <th>发射状态</th>
                   <th>销毁</th>
                   <th>分红储备</th>
                 </tr>
@@ -480,29 +548,29 @@
             <div>
               <span>HELP CENTER</span>
               <h1>帮助中心</h1>
-              <p>部署、钱包、合约功能和后续扩展集中放在这里查看。</p>
+              <p>这里按玩家实际操作来说明创建、认购、奖励和安全注意事项。</p>
             </div>
           </div>
           <div class="help-grid">
             <article class="help-card">
-              <i data-lucide="server"></i>
-              <h2>本地联调</h2>
-              <p>依次运行 `npm run node`、`npm run deploy:local`、`npm run seed:local`、`npm run web`。</p>
+              <i data-lucide="sparkles"></i>
+              <h2>怎样创建神兽</h2>
+              <p>填写神兽名称、Token 信息、供应量和进化阈值，选择本地图片后确认钱包交易。需要公开认购时，再填写认购数量、单价和截止时间。</p>
             </article>
             <article class="help-card">
-              <i data-lucide="wallet"></i>
-              <h2>钱包网络</h2>
-              <p>本地 RPC 为 `http://127.0.0.1:8545`，Chain ID 为 `31337`。</p>
+              <i data-lucide="ticket"></i>
+              <h2>怎样参加发射</h2>
+              <p>进入神兽详情，看到“认购中”后输入数量并确认支付。认购成功后，Token 会直接进入当前钱包。</p>
             </article>
             <article class="help-card">
               <i data-lucide="coins"></i>
-              <h2>已接入功能</h2>
-              <p>创建神兽、读取项目、灵气进度、税池、平台税、销毁、分红领取、触发进化。</p>
+              <h2>怎样获得奖励</h2>
+              <p>持有神兽 Token 后，交易税会进入税池。神兽进化时会销毁一部分并释放分红，钱包连接后可在奖励中心领取。</p>
             </article>
             <article class="help-card">
-              <i data-lucide="badge-help"></i>
-              <h2>待扩展功能</h2>
-              <p>灵符随机奖励、本命号码奖励、DEX 自动回购、正式测试网配置。</p>
+              <i data-lucide="shield-check"></i>
+              <h2>安全提醒</h2>
+              <p>只认准页面显示的合约地址和钱包弹窗金额。显示“合约未开放”的玩法不会收费，发射取消后可在详情页申请退款。</p>
             </article>
           </div>
         </section>
@@ -518,6 +586,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260615"></script>
+    <script src="./app.js?v=20260615-sale"></script>
   </body>
 </html>

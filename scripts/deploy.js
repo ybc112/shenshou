@@ -7,10 +7,25 @@ async function main() {
   const treasury = process.env.TREASURY || deployer.address;
   const creationFee = process.env.CREATION_FEE_WEI || "0";
 
+  const TokenDeployer = await ethers.getContractFactory("RuyiBeastTokenDeployer");
+  const tokenDeployer = await TokenDeployer.deploy();
+  await tokenDeployer.waitForDeployment();
+
+  const SaleVaultDeployer = await ethers.getContractFactory("RuyiBeastSaleVaultDeployer");
+  const saleVaultDeployer = await SaleVaultDeployer.deploy();
+  await saleVaultDeployer.waitForDeployment();
+
   const Launchpad = await ethers.getContractFactory("RuyiBeastLaunchpad");
-  const launchpad = await Launchpad.deploy(treasury, creationFee);
+  const launchpad = await Launchpad.deploy(
+    treasury,
+    creationFee,
+    await tokenDeployer.getAddress(),
+    await saleVaultDeployer.getAddress()
+  );
   await launchpad.waitForDeployment();
 
+  console.log("RuyiBeastTokenDeployer:", await tokenDeployer.getAddress());
+  console.log("RuyiBeastSaleVaultDeployer:", await saleVaultDeployer.getAddress());
   console.log("RuyiBeastLaunchpad:", await launchpad.getAddress());
   console.log("RuyiBeastVault:", await launchpad.vault());
   console.log("Platform treasury:", treasury);
@@ -20,6 +35,8 @@ async function main() {
   const deployment = {
     chainId: Number(network.chainId),
     network: network.name,
+    tokenDeployerAddress: await tokenDeployer.getAddress(),
+    saleVaultDeployerAddress: await saleVaultDeployer.getAddress(),
     launchpadAddress: await launchpad.getAddress(),
     vaultAddress: await launchpad.vault(),
     platformTreasury: treasury,

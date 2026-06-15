@@ -3,9 +3,44 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {RuyiBeastToken} from "./RuyiBeastToken.sol";
 import {RuyiBeastVault} from "./RuyiBeastVault.sol";
+
+interface IRuyiBeastTokenDeployer {
+    function deployToken(
+        string memory tokenName,
+        string memory tokenSymbol,
+        uint256 initialSupply,
+        address initialOwner,
+        address vault,
+        address launchpad,
+        uint256 projectId,
+        string memory beastName,
+        string memory metadataURI,
+        uint256 auraThreshold
+    ) external returns (address token);
+}
+
+interface IRuyiBeastSaleVaultDeployer {
+    function deploySaleVault(
+        address token,
+        address creator,
+        address fundsReceiver,
+        uint256 saleSupply,
+        uint256 mintPrice,
+        uint256 maxMintPerWallet,
+        uint256 saleDeadline
+    ) external returns (address saleVault);
+}
+
+interface IRuyiLaunchToken is IERC20 {
+    function setFeeExempt(address account, bool exempt) external;
+    function setTxLimitExempt(address account, bool exempt) external;
+    function setExcludedFromDividends(address account, bool excluded) external;
+
+    function transferOwnership(address newOwner) external;
+}
 
 contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant DEFAULT_SUPPLY = 1_000_000_000 ether;
@@ -29,6 +64,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 initialSupply;
         uint256 auraThreshold;
         BeastType beastType;
+        uint256 saleSupply;
+        uint256 mintPrice;
+        uint256 maxMintPerWallet;
+        uint256 saleDeadline;
+        address fundsReceiver;
     }
 
     struct BeastProject {
@@ -46,6 +86,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     }
 
     RuyiBeastVault public immutable vault;
+    address public immutable tokenDeployer;
+    address public immutable saleVaultDeployer;
     address public platformTreasury;
     uint256 public creationFee;
 
@@ -53,6 +95,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     mapping(address => bool) public isLaunchpadToken;
     mapping(address => uint256) public tokenToProjectId;
     mapping(address => uint256[]) private _creatorProjects;
+    mapping(uint256 => address) public projectSaleVault;
 
     event BeastCreated(
         uint256 indexed projectId,
@@ -63,13 +106,32 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         string tokenSymbol,
         BeastType beastType
     );
+    event LaunchSaleCreated(
+        uint256 indexed projectId,
+        address indexed saleVault,
+        uint256 saleSupply,
+        uint256 mintPrice,
+        uint256 maxMintPerWallet,
+        uint256 saleDeadline,
+        address indexed fundsReceiver
+    );
     event CreationFeeUpdated(uint256 creationFee);
     event PlatformTreasuryUpdated(address indexed platformTreasury);
     event NativeWithdrawn(address indexed to, uint256 amount);
 
-    constructor(address platformTreasury_, uint256 creationFee_) Ownable(msg.sender) {
+    constructor(
+        address platformTreasury_,
+        uint256 creationFee_,
+        address tokenDeployer_,
+        address saleVaultDeployer_
+    ) Ownable(msg.sender) {
+        require(tokenDeployer_ != address(0), "RuyiLaunchpad: zero token deployer");
+        require(saleVaultDeployer_ != address(0), "RuyiLaunchpad: zero sale deployer");
+
         platformTreasury = platformTreasury_ == address(0) ? msg.sender : platformTreasury_;
         creationFee = creationFee_;
+        tokenDeployer = tokenDeployer_;
+        saleVaultDeployer = saleVaultDeployer_;
         vault = new RuyiBeastVault(address(this));
     }
 
@@ -84,12 +146,26 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 projectId = _projects.length;
         uint256 initialSupply = params.initialSupply == 0 ? DEFAULT_SUPPLY : params.initialSupply;
         uint256 auraThreshold = params.auraThreshold == 0 ? initialSupply / 1_000 : params.auraThreshold;
+        bool saleEnabled = params.saleSupply > 0;
 
-        RuyiBeastToken beastToken = new RuyiBeastToken(
+        if (saleEnabled) {
+            require(params.saleSupply <= initialSupply, "RuyiLaunchpad: sale exceeds supply");
+            require(params.mintPrice > 0, "RuyiLaunchpad: zero mint price");
+            if (params.saleDeadline > 0) {
+                require(params.saleDeadline > block.timestamp, "RuyiLaunchpad: invalid deadline");
+            }
+        } else {
+            require(params.mintPrice == 0, "RuyiLaunchpad: sale supply required");
+            require(params.maxMintPerWallet == 0, "RuyiLaunchpad: sale supply required");
+            require(params.saleDeadline == 0, "RuyiLaunchpad: sale supply required");
+            require(params.fundsReceiver == address(0), "RuyiLaunchpad: sale supply required");
+        }
+
+        token = IRuyiBeastTokenDeployer(tokenDeployer).deployToken(
             params.tokenName,
             params.tokenSymbol,
             initialSupply,
-            msg.sender,
+            saleEnabled ? address(this) : msg.sender,
             address(vault),
             address(this),
             projectId,
@@ -98,8 +174,43 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             auraThreshold
         );
 
-        token = address(beastToken);
         vault.registerToken(token);
+        IRuyiLaunchToken beastToken = IRuyiLaunchToken(token);
+
+        if (saleEnabled) {
+            address receiver = params.fundsReceiver == address(0) ? msg.sender : params.fundsReceiver;
+            address saleVault = IRuyiBeastSaleVaultDeployer(saleVaultDeployer).deploySaleVault(
+                token,
+                msg.sender,
+                receiver,
+                params.saleSupply,
+                params.mintPrice,
+                params.maxMintPerWallet,
+                params.saleDeadline
+            );
+
+            uint256 creatorSupply = initialSupply - params.saleSupply;
+            if (creatorSupply > 0) {
+                require(beastToken.transfer(msg.sender, creatorSupply), "RuyiLaunchpad: creator transfer failed");
+            }
+            beastToken.setFeeExempt(saleVault, true);
+            beastToken.setTxLimitExempt(saleVault, true);
+            beastToken.setExcludedFromDividends(saleVault, true);
+            require(beastToken.transfer(saleVault, params.saleSupply), "RuyiLaunchpad: sale transfer failed");
+            beastToken.transferOwnership(saleVault);
+
+            projectSaleVault[projectId] = saleVault;
+
+            emit LaunchSaleCreated(
+                projectId,
+                saleVault,
+                params.saleSupply,
+                params.mintPrice,
+                params.maxMintPerWallet,
+                params.saleDeadline,
+                receiver
+            );
+        }
 
         _projects.push(
             BeastProject({
@@ -165,12 +276,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     }
 
     function withdrawNative(address payable to, uint256 amount) external onlyOwner nonReentrant {
-        require(to != address(0), "RuyiLaunchpad: zero recipient");
         require(address(this).balance >= amount, "RuyiLaunchpad: insufficient balance");
-
-        (bool ok, ) = to.call{value: amount}("");
-        require(ok, "RuyiLaunchpad: native transfer failed");
-
+        _sendNative(to, amount, "RuyiLaunchpad: native transfer failed");
         emit NativeWithdrawn(to, amount);
     }
 
@@ -205,17 +312,22 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     }
 
     function _forwardCreationFee() private {
-        if (creationFee == 0) {
+        uint256 refund = msg.value;
+        if (creationFee > 0) {
+            _sendNative(payable(platformTreasury), creationFee, "RuyiLaunchpad: fee transfer failed");
+            refund -= creationFee;
+        }
+
+        _sendNative(payable(msg.sender), refund, "RuyiLaunchpad: refund failed");
+    }
+
+    function _sendNative(address payable to, uint256 amount, string memory errorMessage) private {
+        if (amount == 0) {
             return;
         }
 
-        (bool ok, ) = payable(platformTreasury).call{value: creationFee}("");
-        require(ok, "RuyiLaunchpad: fee transfer failed");
-
-        uint256 refund = msg.value - creationFee;
-        if (refund > 0) {
-            (bool refunded, ) = payable(msg.sender).call{value: refund}("");
-            require(refunded, "RuyiLaunchpad: refund failed");
-        }
+        require(to != address(0), "RuyiLaunchpad: zero recipient");
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, errorMessage);
     }
 }

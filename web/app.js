@@ -4,9 +4,10 @@ const LAUNCHPAD_ABI = [
   "function vault() view returns (address)",
   "function creationFee() view returns (uint256)",
   "function projectCount() view returns (uint256)",
+  "function projectSaleVault(uint256 projectId) view returns (address)",
   "function getProjects(uint256 offset,uint256 limit) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt)[] projects)",
   "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)",
-  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType) params) payable returns (address token)"
+  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 saleSupply,uint256 mintPrice,uint256 maxMintPerWallet,uint256 saleDeadline,address fundsReceiver) params) payable returns (address token)"
 ];
 
 const TOKEN_ABI = [
@@ -21,6 +22,8 @@ const TOKEN_ABI = [
   "function totalFeeBps(bool sell) view returns (uint256)",
   "function PLATFORM_TAX_SHARE_BPS() view returns (uint16)",
   "function withdrawableDividendOf(address account) view returns (uint256)",
+  "function allowance(address owner,address spender) view returns (uint256)",
+  "function approve(address spender,uint256 amount) returns (bool)",
   "function claimDividends() returns (uint256 amount)",
   "function triggerEvolution()"
 ];
@@ -29,11 +32,32 @@ const VAULT_ABI = [
   "function poolBalances(address token) view returns (uint256 evolution,uint256 fortune,uint256 risk,uint256 reward,uint256 treasury,uint256 burned,uint256 dividendReserve,uint256 dividendsDistributed,uint256 dividendsPaid)"
 ];
 
+const SALE_VAULT_ABI = [
+  "function creator() view returns (address)",
+  "function fundsReceiver() view returns (address)",
+  "function saleSupply() view returns (uint256)",
+  "function remainingSaleSupply() view returns (uint256)",
+  "function mintPrice() view returns (uint256)",
+  "function maxMintPerWallet() view returns (uint256)",
+  "function saleDeadline() view returns (uint256)",
+  "function nativeRaised() view returns (uint256)",
+  "function finalized() view returns (bool)",
+  "function cancelled() view returns (bool)",
+  "function purchased(address account) view returns (uint256)",
+  "function buy(uint256 tokenAmount) payable",
+  "function finalize(address pair)",
+  "function cancel()",
+  "function claimRefund()",
+  "function withdrawCancelledTokens(address to)"
+];
+
 const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
 const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"];
 const ZERO = 0n;
+const TOKEN_UNIT = 1_000_000_000_000_000_000n;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
 
 const state = {
@@ -79,6 +103,52 @@ function formatBps(value) {
   const whole = bps / 100n;
   const decimal = bps % 100n;
   return decimal === 0n ? `${whole}%` : `${whole}.${decimal.toString().padStart(2, "0").replace(/0+$/, "")}%`;
+}
+
+function formatDateTime(timestamp) {
+  const seconds = Number(timestamp || 0n);
+  if (!seconds) return "无截止";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(seconds * 1000));
+}
+
+function parseTokenAmount(value) {
+  const raw = String(value || "").trim();
+  return raw ? ethers.parseEther(raw) : ZERO;
+}
+
+function parseDeadline(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return ZERO;
+  const ms = new Date(raw).getTime();
+  if (!Number.isFinite(ms)) {
+    throw new Error("请选择有效的认购截止时间");
+  }
+  const seconds = BigInt(Math.floor(ms / 1000));
+  if (seconds <= BigInt(Math.floor(Date.now() / 1000))) {
+    throw new Error("认购截止时间必须晚于当前时间");
+  }
+  return seconds;
+}
+
+function saleStatusLabel(project) {
+  const sale = project?.sale;
+  if (!sale) return "未开启认购";
+  if (sale.cancelled) return "已取消";
+  if (sale.finalized || project.tradingEnabled) return "已开盘";
+  if (sale.remainingSaleSupply === ZERO) return "已售完";
+  if (sale.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline) return "等待结算";
+  return "认购中";
+}
+
+function setDisabled(selector, disabled) {
+  $$(selector).forEach((el) => {
+    el.disabled = disabled;
+  });
 }
 
 function percentOf(value, threshold) {
@@ -255,7 +325,19 @@ async function loadProjects() {
 
 async function enrichProject(project) {
   const token = new ethers.Contract(project.token, TOKEN_ABI, state.provider);
-  const [stage, aura, threshold, totalSupply, symbol, tradingEnabled, pools, buyTaxBps, sellTaxBps, platformTaxShareBps] = await Promise.all([
+  const [
+    stage,
+    aura,
+    threshold,
+    totalSupply,
+    symbol,
+    tradingEnabled,
+    pools,
+    buyTaxBps,
+    sellTaxBps,
+    platformTaxShareBps,
+    saleVault
+  ] = await Promise.all([
     token.stage().catch(() => 0n),
     token.aura().catch(() => ZERO),
     token.auraThreshold().catch(() => project.auraThreshold || ZERO),
@@ -265,13 +347,15 @@ async function enrichProject(project) {
     state.vault.poolBalances(project.token).catch(() => null),
     token.totalFeeBps(false).catch(() => 300n),
     token.totalFeeBps(true).catch(() => 500n),
-    token.PLATFORM_TAX_SHARE_BPS().catch(() => DEFAULT_PLATFORM_TAX_SHARE_BPS)
+    token.PLATFORM_TAX_SHARE_BPS().catch(() => DEFAULT_PLATFORM_TAX_SHARE_BPS),
+    state.launchpad.projectSaleVault(project.id).catch(() => ZERO_ADDRESS)
   ]);
 
   const stageNumber = Number(stage);
   const auraValue = BigInt(aura);
   const thresholdValue = BigInt(threshold);
   const progress = percentOf(auraValue, thresholdValue);
+  const sale = await fetchSaleInfo(saleVault);
 
   return {
     ...project,
@@ -285,8 +369,52 @@ async function enrichProject(project) {
     buyTaxBps: BigInt(buyTaxBps),
     sellTaxBps: BigInt(sellTaxBps),
     platformTaxShareBps: BigInt(platformTaxShareBps),
+    saleVault,
+    sale,
     progress,
     canEvolve: progress >= 100 && stageNumber < 4
+  };
+}
+
+async function fetchSaleInfo(saleVault) {
+  if (!saleVault || saleVault === ZERO_ADDRESS) return null;
+
+  const sale = new ethers.Contract(saleVault, SALE_VAULT_ABI, state.provider);
+  const [
+    creator,
+    fundsReceiver,
+    saleSupply,
+    remainingSaleSupply,
+    mintPrice,
+    maxMintPerWallet,
+    saleDeadline,
+    nativeRaised,
+    finalized,
+    cancelled
+  ] = await Promise.all([
+    sale.creator().catch(() => ZERO_ADDRESS),
+    sale.fundsReceiver().catch(() => ZERO_ADDRESS),
+    sale.saleSupply().catch(() => ZERO),
+    sale.remainingSaleSupply().catch(() => ZERO),
+    sale.mintPrice().catch(() => ZERO),
+    sale.maxMintPerWallet().catch(() => ZERO),
+    sale.saleDeadline().catch(() => ZERO),
+    sale.nativeRaised().catch(() => ZERO),
+    sale.finalized().catch(() => false),
+    sale.cancelled().catch(() => false)
+  ]);
+
+  return {
+    creator,
+    fundsReceiver,
+    saleSupply: BigInt(saleSupply),
+    remainingSaleSupply: BigInt(remainingSaleSupply),
+    mintPrice: BigInt(mintPrice),
+    maxMintPerWallet: BigInt(maxMintPerWallet),
+    saleDeadline: BigInt(saleDeadline),
+    nativeRaised: BigInt(nativeRaised),
+    finalized,
+    cancelled
   };
 }
 
@@ -418,6 +546,7 @@ function projectCardMarkup(project, index) {
   const stageClass = project.canEvolve ? "warning" : "";
   const rankClass = rank === 2 ? "silver" : rank === 3 ? "bronze" : rank > 3 ? "dark" : "";
   const selectedClass = project.id === state.selectedProjectId ? "selected" : "";
+  const saleLabel = saleStatusLabel(project);
 
   return `
     <article class="beast-card ${selectedClass}">
@@ -440,6 +569,7 @@ function projectCardMarkup(project, index) {
           <div><dt>平台金库</dt><dd>${formatToken(pools.treasury, project.symbol)}</dd></div>
           <div><dt>买入税</dt><dd>${formatBps(project.buyTaxBps)}</dd></div>
           <div><dt>卖出税</dt><dd>${formatBps(project.sellTaxBps)}</dd></div>
+          <div><dt>发射状态</dt><dd>${saleLabel}</dd></div>
         </dl>
         <button class="gold-button full" type="button" data-enter-project="${project.id}">进入兽巢</button>
       </div>
@@ -463,6 +593,7 @@ function renderSelectedProject(project) {
     setText("[data-selected-aura-label]", "--");
     setText("[data-tax-buy]", "--");
     setText("[data-tax-sell]", "--");
+    renderSalePanel(null);
     $$("[data-selected-aura-bar]").forEach((bar) => {
       bar.style.width = "0%";
     });
@@ -483,9 +614,54 @@ function renderSelectedProject(project) {
   setText("[data-tax-sell]", formatBps(project.sellTaxBps));
   setText("[data-tax-platform]", formatBps(project.platformTaxShareBps));
   setText("[data-stat='platformTaxShare']", formatBps(project.platformTaxShareBps));
+  renderSalePanel(project);
   $$("[data-selected-aura-bar]").forEach((bar) => {
     bar.style.width = `${project.progress}%`;
   });
+}
+
+function renderSalePanel(project) {
+  const sale = project?.sale || null;
+  const status = saleStatusLabel(project);
+  const hasSale = Boolean(sale);
+  const canBuy = hasSale && status === "认购中";
+  const canRefund = hasSale && sale.cancelled;
+  const canFinalize = hasSale && (status === "已售完" || status === "等待结算");
+  const canCancel = hasSale && status === "等待结算" && sale.remainingSaleSupply > ZERO;
+  const canWithdraw = hasSale && sale.cancelled && sale.nativeRaised === ZERO;
+
+  $$("[data-sale-panel]").forEach((panel) => {
+    panel.dataset.saleState = hasSale ? status : "未开启认购";
+  });
+
+  setText("[data-sale-status]", status);
+  setText("[data-sale-vault]", hasSale ? shortAddress(project.saleVault) : "--");
+  setText("[data-sale-price]", hasSale ? `${formatToken(sale.mintPrice)} ETH/BNB / 枚` : "--");
+  setText("[data-sale-remaining]", hasSale ? `${formatToken(sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
+  setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? formatToken(sale.maxMintPerWallet, project.symbol) : hasSale ? "不限" : "--");
+  setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
+  setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ETH/BNB` : "--");
+  setText("[data-sale-receiver]", hasSale ? shortAddress(sale.fundsReceiver) : "--");
+
+  $$("[data-sale-buy-form]").forEach((form) => {
+    form.dataset.enabled = canBuy ? "true" : "false";
+    const input = form.querySelector("input");
+    const button = form.querySelector("button");
+    if (input) input.disabled = !canBuy;
+    if (button) button.disabled = !canBuy;
+  });
+
+  $$("[data-sale-owner-form]").forEach((form) => {
+    form.dataset.enabled = canFinalize ? "true" : "false";
+    const input = form.querySelector("input");
+    const button = form.querySelector("button");
+    if (input) input.disabled = !canFinalize;
+    if (button) button.disabled = !canFinalize;
+  });
+
+  setDisabled("[data-action='claim-refund']", !canRefund);
+  setDisabled("[data-action='cancel-sale']", !canCancel);
+  setDisabled("[data-action='withdraw-cancelled-tokens']", !canWithdraw);
 }
 
 function renderNextProject() {
@@ -571,7 +747,7 @@ function renderDataCenter() {
   if (!tbody) return;
 
   if (state.projects.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10">暂无税池数据</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11">暂无税池数据</td></tr>`;
     return;
   }
 
@@ -587,6 +763,7 @@ function renderDataCenter() {
         <td>${formatToken(pools.risk, project.symbol)}</td>
         <td>${formatToken(pools.reward, project.symbol)}</td>
         <td>${formatToken(pools.treasury, project.symbol)}</td>
+        <td>${saleStatusLabel(project)}</td>
         <td>${formatToken(pools.burned, project.symbol)}</td>
         <td>${formatToken(pools.dividendReserve, project.symbol)}</td>
       </tr>
@@ -780,8 +957,15 @@ async function createBeast(event) {
 
   const form = event.currentTarget;
   const data = new FormData(form);
-  const initialSupply = data.get("initialSupply") ? ethers.parseEther(data.get("initialSupply")) : ZERO;
-  const auraThreshold = data.get("auraThreshold") ? ethers.parseEther(data.get("auraThreshold")) : ZERO;
+  const initialSupply = parseTokenAmount(data.get("initialSupply"));
+  const auraThreshold = parseTokenAmount(data.get("auraThreshold"));
+  const saleSupply = parseTokenAmount(data.get("saleSupply"));
+  const saleEnabled = saleSupply > ZERO;
+  const fundsReceiverInput = String(data.get("fundsReceiver") || "").trim();
+  let mintPrice = ZERO;
+  let maxMintPerWallet = ZERO;
+  let saleDeadline = ZERO;
+  let fundsReceiver = ZERO_ADDRESS;
 
   const params = {
     beastName: data.get("beastName").trim(),
@@ -790,10 +974,34 @@ async function createBeast(event) {
     metadataURI: "",
     initialSupply,
     auraThreshold,
-    beastType: Number(data.get("beastType"))
+    beastType: Number(data.get("beastType")),
+    saleSupply,
+    mintPrice,
+    maxMintPerWallet,
+    saleDeadline,
+    fundsReceiver
   };
 
   try {
+    if (saleEnabled) {
+      mintPrice = parseTokenAmount(data.get("mintPrice"));
+      maxMintPerWallet = parseTokenAmount(data.get("maxMintPerWallet"));
+      saleDeadline = parseDeadline(data.get("saleDeadline"));
+      if (mintPrice === ZERO) {
+        throw new Error("开启认购时需要填写认购单价");
+      }
+      if (fundsReceiverInput) {
+        if (!ethers.isAddress(fundsReceiverInput)) {
+          throw new Error("收款地址格式不正确");
+        }
+        fundsReceiver = fundsReceiverInput;
+      }
+      params.mintPrice = mintPrice;
+      params.maxMintPerWallet = maxMintPerWallet;
+      params.saleDeadline = saleDeadline;
+      params.fundsReceiver = fundsReceiver;
+    }
+
     params.metadataURI = await buildLocalMetadataURI(form, params);
     showToast("创建交易已发起，请在钱包确认。");
     const launchpadWithSigner = state.launchpad.connect(state.signer);
@@ -805,7 +1013,12 @@ async function createBeast(event) {
         params.metadataURI,
         params.initialSupply,
         params.auraThreshold,
-        params.beastType
+        params.beastType,
+        params.saleSupply,
+        params.mintPrice,
+        params.maxMintPerWallet,
+        params.saleDeadline,
+        params.fundsReceiver
       ],
       { value: state.creationFee }
     );
@@ -858,6 +1071,131 @@ async function triggerEvolution() {
   } catch (error) {
     console.error(error);
     showToast(`进化失败：${shortError(error)}`, "error");
+  }
+}
+
+function selectedSaleVault(signerOrProvider = state.provider) {
+  const project = selectedProject();
+  if (!project?.sale || !project.saleVault || project.saleVault === ZERO_ADDRESS) {
+    throw new Error("当前神兽未开启认购发射");
+  }
+  return new ethers.Contract(project.saleVault, SALE_VAULT_ABI, signerOrProvider);
+}
+
+async function buySale(event) {
+  event.preventDefault();
+  const project = selectedProject();
+  if (!project?.sale || !(await ensureWritable())) return;
+
+  const data = new FormData(event.currentTarget);
+  const tokenAmount = parseTokenAmount(data.get("tokenAmount"));
+  if (tokenAmount === ZERO) {
+    showToast("请输入认购数量。", "error");
+    return;
+  }
+
+  try {
+    const cost = (tokenAmount * project.sale.mintPrice) / TOKEN_UNIT;
+    const saleVault = selectedSaleVault(state.signer);
+    showToast("认购交易已发起，请在钱包确认。");
+    const tx = await saleVault.buy(tokenAmount, { value: cost });
+    await tx.wait();
+    showToast("认购成功");
+    event.currentTarget.reset();
+    await loadProjects();
+    await renderIdentity();
+  } catch (error) {
+    console.error(error);
+    showToast(`认购失败：${shortError(error)}`, "error");
+  }
+}
+
+async function finalizeSale(event) {
+  event.preventDefault();
+  if (!(await ensureWritable())) return;
+
+  const pair = String(new FormData(event.currentTarget).get("pair") || "").trim();
+  if (!ethers.isAddress(pair)) {
+    showToast("请输入有效的交易对地址。", "error");
+    return;
+  }
+
+  try {
+    const saleVault = selectedSaleVault(state.signer);
+    showToast("开盘交易已发起，请在钱包确认。");
+    const tx = await saleVault.finalize(pair);
+    await tx.wait();
+    showToast("发射已开盘，交易权限已锁定");
+    event.currentTarget.reset();
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`开盘失败：${shortError(error)}`, "error");
+  }
+}
+
+async function cancelSale() {
+  if (!(await ensureWritable())) return;
+
+  try {
+    const saleVault = selectedSaleVault(state.signer);
+    showToast("取消发射交易已发起，请在钱包确认。");
+    const tx = await saleVault.cancel();
+    await tx.wait();
+    showToast("发射已取消，用户可申请退款");
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`取消失败：${shortError(error)}`, "error");
+  }
+}
+
+async function claimRefund() {
+  const project = selectedProject();
+  if (!project?.sale || !(await ensureWritable())) return;
+
+  try {
+    const saleVault = selectedSaleVault(state.signer);
+    const purchased = await saleVault.purchased(state.account);
+    if (purchased === ZERO) {
+      showToast("当前钱包没有可退款的认购记录。");
+      return;
+    }
+
+    const token = new ethers.Contract(project.token, TOKEN_ABI, state.signer);
+    const allowance = await token.allowance(state.account, project.saleVault);
+    if (allowance < purchased) {
+      showToast("先授权退回认购 Token，请在钱包确认。");
+      const approveTx = await token.approve(project.saleVault, purchased);
+      await approveTx.wait();
+    }
+
+    showToast("退款交易已发起，请在钱包确认。");
+    const tx = await saleVault.claimRefund();
+    await tx.wait();
+    showToast("退款成功");
+    await loadProjects();
+    await renderIdentity();
+  } catch (error) {
+    console.error(error);
+    showToast(`退款失败：${shortError(error)}`, "error");
+  }
+}
+
+async function withdrawCancelledTokens() {
+  const project = selectedProject();
+  if (!project?.sale || !(await ensureWritable())) return;
+
+  try {
+    const saleVault = selectedSaleVault(state.signer);
+    showToast("取回剩余 Token 交易已发起，请在钱包确认。");
+    const tx = await saleVault.withdrawCancelledTokens(state.account);
+    await tx.wait();
+    showToast("剩余 Token 已取回");
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`取回失败：${shortError(error)}`, "error");
   }
 }
 
@@ -958,6 +1296,14 @@ function bindEvents() {
     form.addEventListener("submit", createBeast);
   });
 
+  $$("[data-sale-buy-form]").forEach((form) => {
+    form.addEventListener("submit", buySale);
+  });
+
+  $$("[data-sale-owner-form]").forEach((form) => {
+    form.addEventListener("submit", finalizeSale);
+  });
+
   $$("[data-image-upload]").forEach((input) => {
     input.addEventListener("change", () => {
       updateUploadPreview(input).catch((error) => showToast(shortError(error), "error"));
@@ -1000,6 +1346,9 @@ function bindEvents() {
     if (action === "claim-dividends") await claimDividends();
     if (action === "trigger-evolution") await triggerEvolution();
     if (action === "copy-token") copyTokenAddress();
+    if (action === "claim-refund") await claimRefund();
+    if (action === "cancel-sale") await cancelSale();
+    if (action === "withdraw-cancelled-tokens") await withdrawCancelledTokens();
     if (action === "select-first" && state.projects[0]) {
       state.selectedProjectId = state.projects[0].id;
       renderAllViews();
