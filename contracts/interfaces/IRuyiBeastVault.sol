@@ -14,5 +14,7 @@ interface IRuyiBeastVault {
 
     function processEvolution(address token) external returns (uint256 burnedAmount, uint256 dividendAmount);
 
+    function processAutoDex(address token) external returns (uint256 processedAmount, uint256 buybackOut, uint256 liquidity);
+
     function payDividend(address to, uint256 amount) external;
 }

@@ -96,6 +96,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     mapping(address => uint256) public tokenToProjectId;
     mapping(address => uint256[]) private _creatorProjects;
     mapping(uint256 => address) public projectSaleVault;
+    mapping(address => bool) public dexOperators;
 
     event BeastCreated(
         uint256 indexed projectId,
@@ -118,6 +119,12 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     event CreationFeeUpdated(uint256 creationFee);
     event PlatformTreasuryUpdated(address indexed platformTreasury);
     event NativeWithdrawn(address indexed to, uint256 amount);
+    event DexOperatorUpdated(address indexed operator, bool enabled);
+
+    modifier onlyDexExecutor() {
+        require(msg.sender == owner() || dexOperators[msg.sender], "RuyiLaunchpad: not dex executor");
+        _;
+    }
 
     constructor(
         address platformTreasury_,
@@ -263,6 +270,172 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
         vault.setEvolutionPayoutConfig(token, burnBps, rewardDividendBps);
+    }
+
+    function setRewardConfig(
+        address token,
+        uint16 talismanChanceBps,
+        uint16 talismanPrizeBps,
+        uint16 luckyPrizeBps,
+        uint16 luckyModulo,
+        uint256 minHoldAmount,
+        bool enabled
+    ) external onlyOwner {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        vault.setRewardConfig(
+            token,
+            talismanChanceBps,
+            talismanPrizeBps,
+            luckyPrizeBps,
+            luckyModulo,
+            minHoldAmount,
+            enabled
+        );
+    }
+
+    function openRewardRound(address token) external onlyOwner returns (uint256 round) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.openRewardRound(token);
+    }
+
+    function assignLuckyNumber(address token) external nonReentrant returns (uint16 number) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.assignLuckyNumber(token, msg.sender);
+    }
+
+    function claimTalismanReward(
+        address token
+    ) external nonReentrant returns (bool won, uint256 amount, uint16 roll) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.claimTalismanReward(token, msg.sender);
+    }
+
+    function claimLuckyNumberReward(address token, uint256 round) external nonReentrant returns (uint256 amount) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.claimLuckyNumberReward(token, msg.sender, round);
+    }
+
+    function setDexOperator(address operator, bool enabled) external onlyOwner {
+        require(operator != address(0), "RuyiLaunchpad: zero operator");
+        dexOperators[operator] = enabled;
+        emit DexOperatorUpdated(operator, enabled);
+    }
+
+    function setDexConfig(
+        address token,
+        address router,
+        address pairedToken,
+        address pair,
+        address liquidityReceiver,
+        address buybackRecipient,
+        bool nativePair,
+        bool burnBuyback,
+        bool enabled
+    ) external onlyOwner {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        vault.setDexConfig(
+            token,
+            router,
+            pairedToken,
+            pair,
+            liquidityReceiver,
+            buybackRecipient,
+            nativePair,
+            burnBuyback,
+            enabled
+        );
+    }
+
+    function setDexAutomationConfig(
+        address token,
+        uint16 autoBuybackBps,
+        uint16 autoLiquidityBps,
+        uint256 autoProcessThreshold,
+        uint256 autoProcessLimit
+    ) external onlyOwner {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        vault.setDexAutomationConfig(token, autoBuybackBps, autoLiquidityBps, autoProcessThreshold, autoProcessLimit);
+    }
+
+    function processAutoDex(
+        address token
+    ) external onlyDexExecutor returns (uint256 processedAmount, uint256 buybackOut, uint256 liquidity) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.processAutoDex(token);
+    }
+
+    function executeNativeBuyback(
+        address token,
+        uint256 amountOutMin,
+        uint256 deadline
+    ) external payable nonReentrant onlyDexExecutor returns (uint256 amountOut) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.executeNativeBuyback{value: msg.value}(token, amountOutMin, deadline);
+    }
+
+    function executeTokenBuyback(
+        address token,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        uint256 deadline
+    ) external nonReentrant onlyDexExecutor returns (uint256 amountOut) {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.executeTokenBuyback(token, amountIn, amountOutMin, deadline);
+    }
+
+    function executeAddLiquidityNative(
+        address token,
+        uint256 tokenAmount,
+        uint256 amountTokenMin,
+        uint256 amountNativeMin,
+        uint256 deadline
+    )
+        external
+        payable
+        nonReentrant
+        onlyDexExecutor
+        returns (uint256 amountToken, uint256 amountNative, uint256 liquidity)
+    {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.executeAddLiquidityNative{value: msg.value}(
+            token,
+            tokenAmount,
+            amountTokenMin,
+            amountNativeMin,
+            deadline
+        );
+    }
+
+    function executeAddLiquidityToken(
+        address token,
+        uint256 tokenAmount,
+        uint256 pairedAmount,
+        uint256 amountTokenMin,
+        uint256 amountPairedMin,
+        uint256 deadline
+    )
+        external
+        nonReentrant
+        onlyDexExecutor
+        returns (uint256 amountToken, uint256 amountPaired, uint256 liquidity)
+    {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        return vault.executeAddLiquidityToken(
+            token,
+            tokenAmount,
+            pairedAmount,
+            amountTokenMin,
+            amountPairedMin,
+            deadline
+        );
+    }
+
+    function withdrawVaultNative(address payable to, uint256 amount) external onlyOwner {
+        vault.withdrawNative(to, amount);
+    }
+
+    function withdrawVaultExternalToken(address token, address to, uint256 amount) external onlyOwner {
+        vault.withdrawExternalToken(token, to, amount);
     }
 
     function withdrawTreasuryPool(address token, address to, uint256 amount) external onlyOwner {

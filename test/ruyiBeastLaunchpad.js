@@ -139,6 +139,59 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(poolsAfterClaim.dividendsPaid, withdrawable);
   });
 
+  it("pays talisman and lucky number rewards from on-chain pools", async function () {
+    const { owner, creator, pair, alice, token, vault, launchpad } = await deployFixture();
+    const tokenAddress = await token.getAddress();
+
+    await token.connect(creator).setAutomatedMarketMakerPair(pair.address, true);
+    await token.connect(creator).transfer(pair.address, ethers.parseEther("100000"));
+    await token.connect(creator).enableTrading();
+    await token.connect(pair).transfer(alice.address, ethers.parseEther("1000"));
+
+    await launchpad.connect(owner).setRewardConfig(
+      tokenAddress,
+      10000,
+      5000,
+      5000,
+      1,
+      1,
+      true
+    );
+
+    await launchpad.connect(alice).assignLuckyNumber(tokenAddress);
+    assert.equal(await vault.hasLuckyNumber(tokenAddress, alice.address), true);
+    assert.equal(await vault.luckyNumbers(tokenAddress, alice.address), 0n);
+
+    await token.connect(alice).triggerEvolution();
+    assert.equal(await vault.talismanRound(tokenAddress), 1n);
+    assert.equal(await vault.luckyRound(tokenAddress), 1n);
+    assert.equal(await vault.luckyWinningNumbers(tokenAddress, 1), 0n);
+
+    const beforeTalisman = await token.balanceOf(alice.address);
+    await launchpad.connect(alice).claimTalismanReward(tokenAddress);
+    const afterTalisman = await token.balanceOf(alice.address);
+    assert.equal(afterTalisman - beforeTalisman, ethers.parseEther("2"));
+
+    await assert.rejects(
+      launchpad.connect(alice).claimTalismanReward(tokenAddress),
+      /talisman claimed/
+    );
+
+    const beforeLucky = await token.balanceOf(alice.address);
+    await launchpad.connect(alice).claimLuckyNumberReward(tokenAddress, 1);
+    const afterLucky = await token.balanceOf(alice.address);
+    assert.equal(afterLucky - beforeLucky, ethers.parseEther("2"));
+
+    await assert.rejects(
+      launchpad.connect(alice).claimLuckyNumberReward(tokenAddress, 1),
+      /lucky claimed/
+    );
+
+    const pools = await vault.poolBalances(tokenAddress);
+    assert.equal(pools.fortune, ethers.parseEther("2"));
+    assert.equal(pools.risk, ethers.parseEther("2"));
+  });
+
   it("locks trading controls after launch opens", async function () {
     const { creator, pair, alice, bob, token } = await deployFixture();
 
@@ -239,6 +292,106 @@ describe("Ruyi Beast Launchpad", function () {
       saleVault.connect(creator).finalize(pair.address),
       /cancelled/
     );
+  });
+
+  it("executes configured native buyback and liquidity add through the vault", async function () {
+    const { owner, creator, pair, alice, token, vault, launchpad } = await deployFixture();
+    const tokenAddress = await token.getAddress();
+    const latest = await ethers.provider.getBlock("latest");
+
+    await token.connect(creator).setAutomatedMarketMakerPair(pair.address, true);
+    await token.connect(creator).transfer(pair.address, ethers.parseEther("100000"));
+    await token.connect(creator).enableTrading();
+    await token.connect(pair).transfer(alice.address, ethers.parseEther("1000"));
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    const routerAddress = await router.getAddress();
+
+    await token.connect(creator).transfer(routerAddress, ethers.parseEther("10"));
+    await launchpad.connect(owner).setDexConfig(
+      tokenAddress,
+      routerAddress,
+      ethers.ZeroAddress,
+      pair.address,
+      alice.address,
+      ethers.ZeroAddress,
+      true,
+      true,
+      true
+    );
+
+    await launchpad.connect(owner).executeNativeBuyback(
+      tokenAddress,
+      ethers.parseEther("1"),
+      latest.timestamp + 3600,
+      { value: ethers.parseEther("0.1") }
+    );
+    assert.equal(await token.balanceOf("0x000000000000000000000000000000000000dEaD"), ethers.parseEther("1"));
+
+    const poolsBefore = await vault.poolBalances(tokenAddress);
+    await launchpad.connect(owner).executeAddLiquidityNative(
+      tokenAddress,
+      ethers.parseEther("1"),
+      0,
+      0,
+      latest.timestamp + 3600,
+      { value: ethers.parseEther("0.2") }
+    );
+    const poolsAfter = await vault.poolBalances(tokenAddress);
+
+    assert.equal(poolsBefore.treasury - poolsAfter.treasury, ethers.parseEther("1"));
+    assert.equal(await token.balanceOf(routerAddress), ethers.parseEther("10"));
+  });
+
+  it("automatically processes treasury tokens into buyback and liquidity on sells", async function () {
+    const { owner, creator, pair, alice, token, vault, launchpad } = await deployFixture();
+    const tokenAddress = await token.getAddress();
+    const dead = "0x000000000000000000000000000000000000dEaD";
+
+    await token.connect(creator).setAutomatedMarketMakerPair(pair.address, true);
+    await token.connect(creator).transfer(pair.address, ethers.parseEther("100000"));
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    const routerAddress = await router.getAddress();
+
+    await token.connect(creator).transfer(routerAddress, ethers.parseEther("100"));
+    await owner.sendTransaction({ to: routerAddress, value: ethers.parseEther("100") });
+
+    await launchpad.connect(owner).setDexConfig(
+      tokenAddress,
+      routerAddress,
+      ethers.ZeroAddress,
+      pair.address,
+      alice.address,
+      ethers.ZeroAddress,
+      true,
+      true,
+      true
+    );
+    await launchpad.connect(owner).setDexAutomationConfig(
+      tokenAddress,
+      5000,
+      5000,
+      ethers.parseEther("1"),
+      ethers.parseEther("4")
+    );
+
+    await token.connect(creator).enableTrading();
+    await token.connect(pair).transfer(alice.address, ethers.parseEther("1000"));
+
+    const poolsBeforeSell = await vault.poolBalances(tokenAddress);
+    assert.equal(poolsBeforeSell.treasury, ethers.parseEther("6"));
+
+    await token.connect(alice).transfer(pair.address, ethers.parseEther("100"));
+    const poolsAfterSell = await vault.poolBalances(tokenAddress);
+
+    assert.equal(poolsAfterSell.treasury, ethers.parseEther("3.4"));
+    assert.equal(await token.balanceOf(dead), ethers.parseEther("2"));
+    assert.equal(await router.liquidityNonce(), 1n);
   });
 
   it("caps fee configuration", async function () {

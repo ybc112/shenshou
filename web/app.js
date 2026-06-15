@@ -7,6 +7,9 @@ const LAUNCHPAD_ABI = [
   "function projectSaleVault(uint256 projectId) view returns (address)",
   "function getProjects(uint256 offset,uint256 limit) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt)[] projects)",
   "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)",
+  "function assignLuckyNumber(address token) returns (uint16 number)",
+  "function claimTalismanReward(address token) returns (bool won,uint256 amount,uint16 roll)",
+  "function claimLuckyNumberReward(address token,uint256 round) returns (uint256 amount)",
   "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 saleSupply,uint256 mintPrice,uint256 maxMintPerWallet,uint256 saleDeadline,address fundsReceiver) params) payable returns (address token)"
 ];
 
@@ -29,7 +32,11 @@ const TOKEN_ABI = [
 ];
 
 const VAULT_ABI = [
-  "function poolBalances(address token) view returns (uint256 evolution,uint256 fortune,uint256 risk,uint256 reward,uint256 treasury,uint256 burned,uint256 dividendReserve,uint256 dividendsDistributed,uint256 dividendsPaid)"
+  "function poolBalances(address token) view returns (uint256 evolution,uint256 fortune,uint256 risk,uint256 reward,uint256 treasury,uint256 burned,uint256 dividendReserve,uint256 dividendsDistributed,uint256 dividendsPaid)",
+  "function talismanRound(address token) view returns (uint256)",
+  "function luckyRound(address token) view returns (uint256)",
+  "function hasLuckyNumber(address token,address account) view returns (bool)",
+  "function luckyNumbers(address token,address account) view returns (uint16)"
 ];
 
 const SALE_VAULT_ABI = [
@@ -799,8 +806,8 @@ async function renderIdentity() {
   if (!state.account) {
     setText("[data-holder-title]", "未连接钱包");
     setText("[data-holder-balance]", "持仓：--");
-    setText("[data-ticket-count]", "合约未开放");
-    setText("[data-lucky-number]", "合约未开放");
+    setText("[data-ticket-count]", "链上已开放");
+    setText("[data-lucky-number]", "待绑定");
     setText("[data-withdrawable-dividend]", "--");
     return;
   }
@@ -809,23 +816,28 @@ async function renderIdentity() {
   if (!project) {
     setText("[data-holder-title]", "普通兽主");
     setText("[data-holder-balance]", `钱包：${shortAddress(state.account)}`);
-    setText("[data-ticket-count]", "合约未开放");
-    setText("[data-lucky-number]", "合约未开放");
+    setText("[data-ticket-count]", "链上已开放");
+    setText("[data-lucky-number]", "待绑定");
     setText("[data-withdrawable-dividend]", "--");
     return;
   }
 
   const token = new ethers.Contract(project.token, TOKEN_ABI, state.provider);
-  const [balance, withdrawable] = await Promise.all([
+  const [balance, withdrawable, talismanRound, hasLuckyNumber] = await Promise.all([
     token.balanceOf(state.account).catch(() => ZERO),
-    token.withdrawableDividendOf(state.account).catch(() => ZERO)
+    token.withdrawableDividendOf(state.account).catch(() => ZERO),
+    state.vault.talismanRound(project.token).catch(() => ZERO),
+    state.vault.hasLuckyNumber(project.token, state.account).catch(() => false)
   ]);
+  const luckyNumber = hasLuckyNumber
+    ? await state.vault.luckyNumbers(project.token, state.account).catch(() => null)
+    : null;
 
   const formalThreshold = ethers.parseEther("1000000");
   setText("[data-holder-title]", balance >= formalThreshold ? "正式兽主" : balance > ZERO ? "普通兽主" : "观察者");
   setText("[data-holder-balance]", `持仓：${formatToken(balance, project.symbol)}`);
-  setText("[data-ticket-count]", "合约未开放");
-  setText("[data-lucky-number]", "合约未开放");
+  setText("[data-ticket-count]", talismanRound > ZERO ? `第 ${talismanRound.toString()} 轮` : "等待进化");
+  setText("[data-lucky-number]", hasLuckyNumber ? `#${String(luckyNumber).padStart(4, "0")}` : balance > ZERO ? "可绑定" : "待持有");
   setText("[data-withdrawable-dividend]", formatToken(withdrawable, project.symbol));
 }
 
@@ -1055,6 +1067,80 @@ async function claimDividends() {
   } catch (error) {
     console.error(error);
     showToast(`领取失败：${shortError(error)}`, "error");
+  }
+}
+
+async function claimTalismanReward() {
+  const project = selectedProject();
+  if (!project || !(await ensureWritable())) return;
+
+  try {
+    const round = await state.vault.talismanRound(project.token).catch(() => ZERO);
+    if (round === ZERO) {
+      showToast("当前兽巢还没有灵符奖励轮次。", "error");
+      return;
+    }
+
+    const launchpadWithSigner = state.launchpad.connect(state.signer);
+    showToast("灵符领取交易已发起，请在钱包确认。");
+    const tx = await launchpadWithSigner.claimTalismanReward(project.token);
+    await tx.wait();
+    showToast("灵符奖励已结算");
+    await loadProjects();
+    await renderIdentity();
+  } catch (error) {
+    console.error(error);
+    showToast(`灵符领取失败：${shortError(error)}`, "error");
+  }
+}
+
+async function assignLuckyNumber() {
+  const project = selectedProject();
+  if (!project || !(await ensureWritable())) return;
+
+  try {
+    const launchpadWithSigner = state.launchpad.connect(state.signer);
+    showToast("本命号码绑定交易已发起，请在钱包确认。");
+    const tx = await launchpadWithSigner.assignLuckyNumber(project.token);
+    await tx.wait();
+    showToast("本命号码绑定成功");
+    await loadProjects();
+    await renderIdentity();
+  } catch (error) {
+    console.error(error);
+    showToast(`号码绑定失败：${shortError(error)}`, "error");
+  }
+}
+
+async function claimLuckyNumberReward() {
+  const project = selectedProject();
+  if (!project || !(await ensureWritable())) return;
+
+  try {
+    const [hasNumber, round] = await Promise.all([
+      state.vault.hasLuckyNumber(project.token, state.account).catch(() => false),
+      state.vault.luckyRound(project.token).catch(() => ZERO)
+    ]);
+
+    if (!hasNumber) {
+      await assignLuckyNumber();
+      return;
+    }
+    if (round === ZERO) {
+      showToast("号码已绑定，等待下一轮开奖。");
+      return;
+    }
+
+    const launchpadWithSigner = state.launchpad.connect(state.signer);
+    showToast("号码奖励领取交易已发起，请在钱包确认。");
+    const tx = await launchpadWithSigner.claimLuckyNumberReward(project.token, round);
+    await tx.wait();
+    showToast("号码奖励已结算");
+    await loadProjects();
+    await renderIdentity();
+  } catch (error) {
+    console.error(error);
+    showToast(`号码奖励失败：${shortError(error)}`, "error");
   }
 }
 
@@ -1345,6 +1431,8 @@ function bindEvents() {
     if (action === "connect-wallet") await connectWallet();
     if (action === "refresh") await bootstrap();
     if (action === "claim-dividends") await claimDividends();
+    if (action === "claim-talisman") await claimTalismanReward();
+    if (action === "lucky-number-action") await claimLuckyNumberReward();
     if (action === "trigger-evolution") await triggerEvolution();
     if (action === "copy-token") copyTokenAddress();
     if (action === "claim-refund") await claimRefund();

@@ -375,6 +375,11 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
             burnAmount
         );
 
+        if (isSell) {
+            try IRuyiBeastVault(vault).processAutoDex(address(this)) {}
+            catch {}
+        }
+
         emit FeesTaken(from, to, isSell, feeAmount, evolutionAmount, rewardAmount);
     }
 

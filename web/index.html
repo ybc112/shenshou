@@ -254,8 +254,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>灵符奖励</span><strong data-ticket-count>合约未开放</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>合约未开放</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>链上已开放</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>待绑定</strong></div>
               </div>
               <button class="outline-button full" type="button" data-action="connect-wallet">连接钱包</button>
             </section>
@@ -267,15 +267,15 @@
                 <strong data-withdrawable-dividend>--</strong>
                 <button type="button" data-action="claim-dividends">领取</button>
               </div>
-              <div class="reward-row disabled">
+              <div class="reward-row">
                 <span><i data-lucide="gem"></i>灵符奖励</span>
-                <strong>合约未开放</strong>
-                <button type="button" disabled>待开放</button>
+                <strong>链上已开放</strong>
+                <button type="button" data-action="claim-talisman">领取</button>
               </div>
-              <div class="reward-row disabled">
+              <div class="reward-row">
                 <span><i data-lucide="circle-dot"></i>号码奖励</span>
-                <strong>合约未开放</strong>
-                <button type="button" disabled>待开放</button>
+                <strong>链上已开放</strong>
+                <button type="button" data-action="lucky-number-action">绑定/领取</button>
               </div>
               <button class="gold-button full" type="button" data-action="claim-dividends">领取分红</button>
             </section>
@@ -462,7 +462,7 @@
             <div>
               <span>REWARD CENTER</span>
               <h1>奖励中心</h1>
-              <p>连接钱包后查看当前兽巢可领取分红，未接入合约的奖励保持待开放状态。</p>
+              <p>连接钱包后查看当前兽巢的分红、灵符和本命号码奖励状态。</p>
             </div>
             <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
           </div>
@@ -477,8 +477,8 @@
                 </div>
               </div>
               <div class="identity-stats">
-                <div><span>灵符奖励</span><strong data-ticket-count>合约未开放</strong></div>
-                <div><span>本命号码</span><strong data-lucky-number>合约未开放</strong></div>
+                <div><span>灵符奖励</span><strong data-ticket-count>链上已开放</strong></div>
+                <div><span>本命号码</span><strong data-lucky-number>待绑定</strong></div>
               </div>
             </section>
             <section class="reward-card reward-main">
@@ -488,15 +488,15 @@
                 <strong data-withdrawable-dividend>--</strong>
                 <button type="button" data-action="claim-dividends">领取</button>
               </div>
-              <div class="reward-row disabled">
+              <div class="reward-row">
                 <span><i data-lucide="gem"></i>灵符奖励</span>
-                <strong>合约未开放</strong>
-                <button type="button" disabled>待开放</button>
+                <strong>链上已开放</strong>
+                <button type="button" data-action="claim-talisman">领取</button>
               </div>
-              <div class="reward-row disabled">
+              <div class="reward-row">
                 <span><i data-lucide="circle-dot"></i>号码奖励</span>
-                <strong>合约未开放</strong>
-                <button type="button" disabled>待开放</button>
+                <strong>链上已开放</strong>
+                <button type="button" data-action="lucky-number-action">绑定/领取</button>
               </div>
               <button class="gold-button full" type="button" data-action="claim-dividends">领取分红</button>
             </section>
@@ -570,7 +570,7 @@
             <article class="help-card">
               <i data-lucide="shield-check"></i>
               <h2>安全提醒</h2>
-              <p>只认准页面显示的合约地址和钱包弹窗金额。显示“合约未开放”的玩法不会收费，发射取消后可在详情页申请退款。</p>
+              <p>只认准页面显示的合约地址和钱包弹窗金额。未接入操作的按钮不会收费，发射取消后可在详情页申请退款。</p>
             </article>
           </div>
         </section>
