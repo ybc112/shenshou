@@ -234,8 +234,9 @@ function beastSigilMarkup(project, size = "") {
 
 function getStoredLaunchpadAddress() {
   const fromStorage = localStorage.getItem("ruyi.launchpadAddress") || "";
+  const fromCurrentStorage = localStorage.getItem("beast.launchpadAddress") || "";
   const fromConfig = window.RUYI_CONFIG?.launchpadAddress || "";
-  return fromConfig || fromStorage;
+  return fromConfig || fromCurrentStorage || fromStorage;
 }
 
 async function makeProvider() {
@@ -1215,7 +1216,7 @@ async function ensureWritable() {
 function shortError(error) {
   const message = error?.shortMessage || error?.reason || error?.message?.split("\n")[0] || "";
   if (error?.code === "BAD_DATA" || message.includes("could not decode result data")) {
-    return "当前地址不是如意神兽发射台合约，请重新部署或填写正确地址";
+    return "当前地址不是神兽发射台合约，请重新部署或填写正确地址";
   }
   if (message.includes("ECONNREFUSED") || message.includes("failed to detect network")) {
     return "RPC 未连接，请先启动本地链或检查网络配置";
@@ -1288,7 +1289,7 @@ function bindEvents() {
       showToast("请输入有效的合约地址。", "error");
       return;
     }
-    localStorage.setItem("ruyi.launchpadAddress", address);
+    localStorage.setItem("beast.launchpadAddress", address);
     await bootstrap();
   });
 
