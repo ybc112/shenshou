@@ -35,6 +35,8 @@ const TOKEN_ABI = [
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 amount) returns (bool)",
   "function claimDividends() returns (uint256 amount)",
+  "function setAutomatedMarketMakerPair(address pair,bool enabled)",
+  "function enableTrading()",
   "function triggerEvolution()"
 ];
 
@@ -865,6 +867,10 @@ function renderSalePanel(project) {
   const canCancel = hasSale && saleDeadlineExpired(sale) && sale.remainingSaleSupply > ZERO;
   const canWithdraw = hasSale && sale.cancelled && sale.nativeRaised === ZERO;
   const isSaleCreator = hasSale && state.account && sameAddress(state.account, sale.creator);
+  const isProjectCreator = Boolean(project && state.account && sameAddress(state.account, project.creator));
+  const canDirectOpen = Boolean(project && !hasSale && !project.tradingEnabled && isProjectCreator);
+  const canOpenTrading = (canFinalize && isSaleCreator) || canDirectOpen;
+  const saleHint = salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator });
 
   $$("[data-sale-panel]").forEach((panel) => {
     panel.dataset.saleState = hasSale ? status : "未开启认购";
@@ -884,21 +890,41 @@ function renderSalePanel(project) {
     form.dataset.enabled = canBuy ? "true" : "false";
     const input = form.querySelector("input");
     const button = form.querySelector("button");
-    if (input) input.disabled = !canBuy;
+    if (input) {
+      input.disabled = !canBuy;
+      input.placeholder = canBuy ? "输入认购数量" : hasSale ? "当前状态不能认购" : "未开启认购，不能认购";
+    }
     if (button) button.disabled = !canBuy;
   });
 
   $$("[data-sale-owner-form]").forEach((form) => {
-    form.dataset.enabled = canFinalize && isSaleCreator ? "true" : "false";
+    form.dataset.enabled = canOpenTrading ? "true" : "false";
     const input = form.querySelector("input");
     const button = form.querySelector("button");
-    if (input) input.disabled = !(canFinalize && isSaleCreator);
-    if (button) button.disabled = !(canFinalize && isSaleCreator);
+    const buttonLabel = button?.querySelector("span");
+    if (input) input.disabled = !canOpenTrading;
+    if (button) button.disabled = !canOpenTrading;
+    if (buttonLabel) buttonLabel.textContent = project?.tradingEnabled ? "已开盘" : "确认开盘";
   });
 
+  setText("[data-sale-hint]", saleHint);
   setDisabled("[data-action='claim-refund']", !canRefund);
   setDisabled("[data-action='cancel-sale']", !(canCancel && isSaleCreator));
   setDisabled("[data-action='withdraw-cancelled-tokens']", !(canWithdraw && isSaleCreator));
+}
+
+function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator }) {
+  if (!project) return "请选择一个神兽后查看认购和开盘状态。";
+  if (project.tradingEnabled) return "该神兽已开盘，交易权限已经开启。";
+  if (!hasSale) {
+    if (canDirectOpen) return "该神兽未开启认购，创建者可直接填写 Pancake 交易对地址并确认开盘。";
+    return isProjectCreator ? "请连接创建者钱包后填写交易对地址开盘。" : "该神兽未开启认购，只有创建者钱包可以填写交易对地址开盘。";
+  }
+  if (canBuy) return "当前可认购，输入数量后确认钱包支付 BNB。";
+  if (canFinalize && isSaleCreator) return "认购已结束，创建者可填写交易对地址并确认开盘。";
+  if (status === "可开盘") return "认购已结束，等待项目创建者填写交易对地址开盘。";
+  if (status === "已取消") return "该认购已取消，参与钱包可按规则申请退款。";
+  return "当前状态暂不能操作，请等待认购结束或刷新链上数据。";
 }
 
 function renderAdminTools(project) {
@@ -1648,10 +1674,22 @@ async function finalizeSale(event) {
   }
 
   try {
-    const saleVault = selectedSaleVault(state.signer);
     showToast("开盘交易已发起，请在钱包确认。");
-    const tx = await saleVault.finalize(pair);
-    await tx.wait();
+    if (project.sale) {
+      const saleVault = selectedSaleVault(state.signer);
+      const tx = await saleVault.finalize(pair);
+      await tx.wait();
+    } else {
+      if (!sameAddress(state.account, project.creator)) {
+        showToast("只有神兽创建者钱包可以直接开盘。", "error");
+        return;
+      }
+      const token = new ethers.Contract(project.token, TOKEN_ABI, state.signer);
+      const pairTx = await token.setAutomatedMarketMakerPair(pair, true);
+      await pairTx.wait();
+      const openTx = await token.enableTrading();
+      await openTx.wait();
+    }
     showToast("发射已开盘，交易权限已锁定");
     event.currentTarget.reset();
     await loadProjects();

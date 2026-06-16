@@ -1628,6 +1628,14 @@ input[type="file"]::file-selector-button {
   padding-top: 2px;
 }
 
+.sale-hint {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
 .mint-panel {
   display: grid;
   gap: 12px;

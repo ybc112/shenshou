@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260616-bnb" />
+    <link rel="stylesheet" href="./styles.css?v=20260616-open" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -171,6 +171,7 @@
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
                 </form>
+                <p class="sale-hint" data-sale-hint>请选择神兽后查看认购和开盘状态。</p>
                 <div class="button-row sale-actions">
                   <button class="outline-button" type="button" data-action="claim-refund"><i data-lucide="rotate-ccw"></i><span>申请退款</span></button>
                   <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
@@ -476,6 +477,7 @@
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
                 </form>
+                <p class="sale-hint" data-sale-hint>请选择神兽后查看认购和开盘状态。</p>
                 <div class="button-row sale-actions">
                   <button class="outline-button" type="button" data-action="claim-refund"><i data-lucide="rotate-ccw"></i><span>申请退款</span></button>
                   <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
@@ -673,6 +675,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260616-bnb"></script>
+    <script src="./app.js?v=20260616-open"></script>
   </body>
 </html>
