@@ -53,7 +53,10 @@ const VAULT_ABI = [
 
 const SALE_VAULT_ABI = [
   "function creator() view returns (address)",
-  "function fundsReceiver() view returns (address)",
+  "function liquidityRouter() view returns (address)",
+  "function liquidityReceiver() view returns (address)",
+  "function liquidityTokenBps() view returns (uint16)",
+  "function mintLiquidityEnabled() view returns (bool)",
   "function saleSupply() view returns (uint256)",
   "function remainingSaleSupply() view returns (uint256)",
   "function mintPrice() view returns (uint256)",
@@ -66,7 +69,7 @@ const SALE_VAULT_ABI = [
   "function buy(uint256 tokenAmount) payable",
   "function finalize(address pair)",
   "function cancel()",
-  "function claimRefund()",
+  "function configureMintLiquidity(address router,uint16 liquidityTokenBps,address liquidityReceiver,bool enabled)",
   "function withdrawCancelledTokens(address to)"
 ];
 
@@ -75,8 +78,11 @@ const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
 const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "mint", "platform", "data", "help"];
 const ZERO = 0n;
+const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const PANCAKE_V2_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
 const NATIVE_SYMBOL = "BNB";
 const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
 const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
@@ -179,27 +185,40 @@ function parseDeadline(value) {
   if (!raw) return ZERO;
   const ms = new Date(raw).getTime();
   if (!Number.isFinite(ms)) {
-    throw new Error("请选择有效的认购截止时间");
+    throw new Error("请选择有效的 Mint 截止时间");
   }
   const seconds = BigInt(Math.floor(ms / 1000));
   if (seconds <= BigInt(Math.floor(Date.now() / 1000))) {
-    throw new Error("认购截止时间必须晚于当前时间");
+    throw new Error("Mint 截止时间必须晚于当前时间");
   }
   return seconds;
 }
 
 function saleStatusLabel(project) {
   const sale = project?.sale;
-  if (!sale) return "未开启认购";
+  if (!sale) return "未开启 Mint";
   if (sale.cancelled) return "已取消";
   if (sale.finalized || project.tradingEnabled) return "已开盘";
-  if (sale.remainingSaleSupply === ZERO) return "可开盘";
+  if (sale.maxUserMintRemaining === ZERO) return "可开盘";
   if (sale.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline) return "可开盘";
-  return "认购中";
+  if (!sale.mintLiquidityEnabled || !sale.liquidityRouter || sale.liquidityRouter === ZERO_ADDRESS) return "待配置加池";
+  return "Mint中";
 }
 
 function saleDeadlineExpired(sale) {
   return Boolean(sale?.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline);
+}
+
+function maxUserMintFromRemaining(sale) {
+  if (!sale) return ZERO;
+  const liquidityBps = sale.liquidityTokenBps ?? BPS;
+  const denominator = BPS + liquidityBps;
+  return denominator > ZERO ? (sale.remainingSaleSupply * BPS) / denominator : ZERO;
+}
+
+function mintedAmountFromRaised(sale) {
+  if (!sale || sale.mintPrice === ZERO) return ZERO;
+  return (sale.nativeRaised * TOKEN_UNIT) / sale.mintPrice;
 }
 
 function setDisabled(selector, disabled) {
@@ -547,7 +566,10 @@ async function fetchSaleInfo(saleVault) {
   const sale = new ethers.Contract(saleVault, SALE_VAULT_ABI, state.provider);
   const [
     creator,
-    fundsReceiver,
+    liquidityRouter,
+    liquidityReceiver,
+    liquidityTokenBps,
+    mintLiquidityEnabled,
     saleSupply,
     remainingSaleSupply,
     mintPrice,
@@ -558,7 +580,10 @@ async function fetchSaleInfo(saleVault) {
     cancelled
   ] = await Promise.all([
     sale.creator().catch(() => ZERO_ADDRESS),
-    sale.fundsReceiver().catch(() => ZERO_ADDRESS),
+    sale.liquidityRouter().catch(() => ZERO_ADDRESS),
+    sale.liquidityReceiver().catch(() => DEAD_ADDRESS),
+    sale.liquidityTokenBps().catch(() => BPS),
+    sale.mintLiquidityEnabled().catch(() => false),
     sale.saleSupply().catch(() => ZERO),
     sale.remainingSaleSupply().catch(() => ZERO),
     sale.mintPrice().catch(() => ZERO),
@@ -569,9 +594,12 @@ async function fetchSaleInfo(saleVault) {
     sale.cancelled().catch(() => false)
   ]);
 
-  return {
+  const normalizedSale = {
     creator,
-    fundsReceiver,
+    liquidityRouter,
+    liquidityReceiver,
+    liquidityTokenBps: BigInt(liquidityTokenBps),
+    mintLiquidityEnabled,
     saleSupply: BigInt(saleSupply),
     remainingSaleSupply: BigInt(remainingSaleSupply),
     mintPrice: BigInt(mintPrice),
@@ -581,6 +609,9 @@ async function fetchSaleInfo(saleVault) {
     finalized,
     cancelled
   };
+  normalizedSale.userMinted = mintedAmountFromRaised(normalizedSale);
+  normalizedSale.maxUserMintRemaining = maxUserMintFromRemaining(normalizedSale);
+  return normalizedSale;
 }
 
 function updateStats() {
@@ -861,10 +892,10 @@ function renderSalePanel(project) {
   const sale = project?.sale || null;
   const status = saleStatusLabel(project);
   const hasSale = Boolean(sale);
-  const canBuy = hasSale && status === "认购中";
-  const canRefund = hasSale && sale.cancelled;
+  const canBuy = hasSale && status === "Mint中";
+  const canRefund = false;
   const canFinalize = hasSale && status === "可开盘";
-  const canCancel = hasSale && saleDeadlineExpired(sale) && sale.remainingSaleSupply > ZERO;
+  const canCancel = hasSale && saleDeadlineExpired(sale) && sale.nativeRaised === ZERO;
   const canWithdraw = hasSale && sale.cancelled && sale.nativeRaised === ZERO;
   const isSaleCreator = hasSale && state.account && sameAddress(state.account, sale.creator);
   const isProjectCreator = Boolean(project && state.account && sameAddress(state.account, project.creator));
@@ -873,18 +904,20 @@ function renderSalePanel(project) {
   const saleHint = salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator });
 
   $$("[data-sale-panel]").forEach((panel) => {
-    panel.dataset.saleState = hasSale ? status : "未开启认购";
+    panel.dataset.saleState = hasSale ? status : "未开启 Mint";
   });
 
   setText("[data-sale-status]", status);
   setText("[data-sale-vault]", hasSale ? shortAddress(project.saleVault) : "--");
   setText("[data-sale-price]", hasSale ? `${formatToken(sale.mintPrice)} ${NATIVE_SYMBOL} / 枚` : "--");
-  setText("[data-sale-sold]", hasSale ? `${formatToken(sale.saleSupply - sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
-  setText("[data-sale-remaining]", hasSale ? `${formatToken(sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
+  setText("[data-sale-sold]", hasSale ? formatToken(sale.userMinted, project.symbol) : "--");
+  setText("[data-sale-remaining]", hasSale ? formatToken(sale.maxUserMintRemaining, project.symbol) : "--");
   setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? formatToken(sale.maxMintPerWallet, project.symbol) : hasSale ? "不限" : "--");
   setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
   setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ${NATIVE_SYMBOL}` : "--");
-  setText("[data-sale-receiver]", hasSale ? shortAddress(sale.fundsReceiver) : "--");
+  setText("[data-sale-receiver]", hasSale ? shortAddress(sale.liquidityReceiver) : "--");
+  setText("[data-sale-router]", hasSale ? shortAddress(sale.liquidityRouter) : "--");
+  setText("[data-sale-liquidity-ratio]", hasSale ? `${formatBps(sale.liquidityTokenBps)} 加池` : "--");
 
   $$("[data-sale-buy-form]").forEach((form) => {
     form.dataset.enabled = canBuy ? "true" : "false";
@@ -892,9 +925,31 @@ function renderSalePanel(project) {
     const button = form.querySelector("button");
     if (input) {
       input.disabled = !canBuy;
-      input.placeholder = canBuy ? "输入认购数量" : hasSale ? "当前状态不能认购" : "未开启认购，不能认购";
+      input.placeholder = canBuy ? "输入 Mint 数量" : hasSale ? "当前状态不能 Mint" : "未开启 Mint，不能 Mint";
     }
     if (button) button.disabled = !canBuy;
+  });
+
+  $$("[data-sale-liquidity-form]").forEach((form) => {
+    const canConfigureLiquidity = Boolean(hasSale && isSaleCreator && !sale.finalized && !sale.cancelled && !project.tradingEnabled);
+    form.dataset.enabled = canConfigureLiquidity ? "true" : "false";
+    const routerInput = form.querySelector("input[name='router']");
+    const bpsInput = form.querySelector("input[name='liquidityTokenBps']");
+    const receiverInput = form.querySelector("input[name='liquidityReceiver']");
+    const button = form.querySelector("button");
+    if (routerInput) {
+      routerInput.disabled = !canConfigureLiquidity;
+      routerInput.value = hasSale && sale.liquidityRouter !== ZERO_ADDRESS ? sale.liquidityRouter : PANCAKE_V2_ROUTER;
+    }
+    if (bpsInput) {
+      bpsInput.disabled = !canConfigureLiquidity;
+      bpsInput.value = hasSale ? String(sale.liquidityTokenBps) : "10000";
+    }
+    if (receiverInput) {
+      receiverInput.disabled = !canConfigureLiquidity;
+      receiverInput.value = hasSale && sale.liquidityReceiver !== DEAD_ADDRESS ? sale.liquidityReceiver : "";
+    }
+    if (button) button.disabled = !canConfigureLiquidity;
   });
 
   $$("[data-sale-owner-form]").forEach((form) => {
@@ -914,17 +969,18 @@ function renderSalePanel(project) {
 }
 
 function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator }) {
-  if (!project) return "请选择一个神兽后查看认购和开盘状态。";
+  if (!project) return "请选择一个神兽后查看 Mint 和开盘状态。";
   if (project.tradingEnabled) return "该神兽已开盘，交易权限已经开启。";
   if (!hasSale) {
-    if (canDirectOpen) return "该神兽未开启认购，创建者可直接填写 Pancake 交易对地址并确认开盘。";
-    return isProjectCreator ? "请连接创建者钱包后填写交易对地址开盘。" : "该神兽未开启认购，只有创建者钱包可以填写交易对地址开盘。";
+    if (canDirectOpen) return "该神兽未开启 Mint 发射，创建者可直接填写 Pancake 交易对地址并确认开盘。";
+    return isProjectCreator ? "请连接创建者钱包后填写交易对地址开盘。" : "该神兽未开启 Mint 发射，只有创建者钱包可以填写交易对地址开盘。";
   }
-  if (canBuy) return "当前可认购，输入数量后确认钱包支付 BNB。";
-  if (canFinalize && isSaleCreator) return "认购已结束，创建者可填写交易对地址并确认开盘。";
-  if (status === "可开盘") return "认购已结束，等待项目创建者填写交易对地址开盘。";
-  if (status === "已取消") return "该认购已取消，参与钱包可按规则申请退款。";
-  return "当前状态暂不能操作，请等待认购结束或刷新链上数据。";
+  if (status === "待配置加池") return "等待配置 Pancake Router 后开放 Mint。Mint 的 BNB 会自动配对 Token 加池，LP 默认进入黑洞。";
+  if (canBuy) return "当前可 Mint，支付的 BNB 会和加池 Token 自动加入 Pancake，LP 默认进入黑洞。";
+  if (canFinalize && isSaleCreator) return "Mint 已结束，创建者可填写交易对地址并确认开盘。";
+  if (status === "可开盘") return "Mint 已结束，等待项目创建者填写交易对地址开盘。";
+  if (status === "已取消") return "该 Mint 发射未开始且已取消，剩余 Token 可由创建者取回。";
+  return "当前状态暂不能操作，请等待 Mint 结束或刷新链上数据。";
 }
 
 function renderAdminTools(project) {
@@ -1421,7 +1477,7 @@ async function createBeast(event) {
   const auraThreshold = parseTokenAmount(data.get("auraThreshold"));
   const saleSupply = parseTokenAmount(data.get("saleSupply"));
   const saleEnabled = saleSupply > ZERO;
-  const fundsReceiverInput = String(data.get("fundsReceiver") || "").trim();
+  const liquidityReceiverInput = String(data.get("fundsReceiver") || "").trim();
   let mintPrice = ZERO;
   let maxMintPerWallet = ZERO;
   let saleDeadline = ZERO;
@@ -1448,13 +1504,13 @@ async function createBeast(event) {
       maxMintPerWallet = parseTokenAmount(data.get("maxMintPerWallet"));
       saleDeadline = parseDeadline(data.get("saleDeadline"));
       if (mintPrice === ZERO) {
-        throw new Error("开启认购时需要填写认购单价");
+        throw new Error("开启 Mint 发射时需要填写 Mint 单价");
       }
-      if (fundsReceiverInput) {
-        if (!ethers.isAddress(fundsReceiverInput)) {
-          throw new Error("收款地址格式不正确");
+      if (liquidityReceiverInput) {
+        if (!ethers.isAddress(liquidityReceiverInput)) {
+          throw new Error("LP 接收地址格式不正确");
         }
-        fundsReceiver = fundsReceiverInput;
+        fundsReceiver = liquidityReceiverInput;
       }
       params.mintPrice = mintPrice;
       params.maxMintPerWallet = maxMintPerWallet;
@@ -1611,7 +1667,7 @@ async function triggerEvolution() {
 function selectedSaleVault(signerOrProvider = state.provider) {
   const project = selectedProject();
   if (!project?.sale || !project.saleVault || project.saleVault === ZERO_ADDRESS) {
-    throw new Error("当前神兽未开启认购发射");
+    throw new Error("当前神兽未开启 Mint 发射");
   }
   return new ethers.Contract(project.saleVault, SALE_VAULT_ABI, signerOrProvider);
 }
@@ -1621,12 +1677,12 @@ async function buySale(event) {
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable())) return;
   if (!project.sale) {
-    showToast("当前神兽未开启认购。", "error");
+    showToast("当前神兽未开启 Mint。", "error");
     return;
   }
   const status = saleStatusLabel(project);
-  if (status !== "认购中") {
-    const message = status === "可开盘" ? "认购已结束，等待项目方开盘。" : `当前状态为“${status}”，不能继续认购。`;
+  if (status !== "Mint中") {
+    const message = status === "可开盘" ? "Mint 已结束，等待项目方开盘。" : `当前状态为“${status}”，不能继续 Mint。`;
     showToast(message, "error");
     return;
   }
@@ -1634,43 +1690,81 @@ async function buySale(event) {
   const data = new FormData(event.currentTarget);
   const tokenAmount = parseTokenAmount(data.get("tokenAmount"));
   if (tokenAmount === ZERO) {
-    showToast("请输入认购数量。", "error");
+    showToast("请输入 Mint 数量。", "error");
     return;
   }
-  if (tokenAmount > project.sale.remainingSaleSupply) {
-    showToast("认购数量超过剩余数量，请减少数量后再试。", "error");
+  if (tokenAmount > project.sale.maxUserMintRemaining) {
+    showToast("Mint 数量超过剩余可 Mint 数量，请减少数量后再试。", "error");
+    return;
+  }
+  if (!project.sale.mintLiquidityEnabled || project.sale.liquidityRouter === ZERO_ADDRESS) {
+    showToast("该项目还没有配置 Pancake Router，暂不能 Mint。", "error");
     return;
   }
 
   try {
     const cost = (tokenAmount * project.sale.mintPrice) / TOKEN_UNIT;
     if (cost === ZERO) {
-      showToast("认购金额太小，请增加认购数量。", "error");
+      showToast("Mint 金额太小，请增加 Mint 数量。", "error");
       return;
     }
     const saleVault = selectedSaleVault(state.signer);
     if (project.sale.maxMintPerWallet > ZERO) {
       const purchased = await saleVault.purchased(state.account).catch(() => ZERO);
       if (purchased + tokenAmount > project.sale.maxMintPerWallet) {
-        showToast("认购数量超过当前钱包上限，请减少数量后再试。", "error");
+        showToast("Mint 数量超过当前钱包上限，请减少数量后再试。", "error");
         return;
       }
     }
     const balance = await state.provider.getBalance(state.account).catch(() => ZERO);
     if (balance < cost) {
-      showToast(`钱包 ${NATIVE_SYMBOL} 余额不足，无法支付本次认购。`, "error");
+      showToast(`钱包 ${NATIVE_SYMBOL} 余额不足，无法支付本次 Mint。`, "error");
       return;
     }
-    showToast("认购交易已发起，请在钱包确认。");
+    showToast("Mint 交易已发起，请在钱包确认。");
     const tx = await saleVault.buy(tokenAmount, { value: cost });
     await tx.wait();
-    showToast("认购成功");
+    showToast("Mint 成功，BNB 已自动加池");
     event.currentTarget.reset();
     await loadProjects();
     await renderIdentity();
   } catch (error) {
     console.error(error);
-    showToast(`认购失败：${shortError(error)}`, "error");
+    showToast(`Mint 失败：${shortError(error)}`, "error");
+  }
+}
+
+async function saveMintLiquidityConfig(event) {
+  event.preventDefault();
+  const project = requireSelectedProject();
+  if (!project || !(await ensureWritable())) return;
+  if (!project.sale) {
+    showToast("当前神兽未开启 Mint。", "error");
+    return;
+  }
+  if (!sameAddress(state.account, project.sale.creator)) {
+    showToast("只有神兽创建者可以配置 Mint 加池。", "error");
+    return;
+  }
+
+  try {
+    const data = new FormData(event.currentTarget);
+    const router = normalizeAddressInput(data.get("router"), PANCAKE_V2_ROUTER);
+    const liquidityReceiver = normalizeAddressInput(data.get("liquidityReceiver"), ZERO_ADDRESS);
+    const liquidityTokenBps = Number(data.get("liquidityTokenBps") || 10000);
+    if (!Number.isInteger(liquidityTokenBps) || liquidityTokenBps <= 0 || liquidityTokenBps > 10000) {
+      throw new Error("加池比例需要在 1 到 10000 之间");
+    }
+
+    const saleVault = selectedSaleVault(state.signer);
+    showToast("Mint 加池配置已发起，请在钱包确认。");
+    const tx = await saleVault.configureMintLiquidity(router, liquidityTokenBps, liquidityReceiver, true);
+    await tx.wait();
+    showToast("Mint 加池配置已更新");
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`配置失败：${shortError(error)}`, "error");
   }
 }
 
@@ -1722,7 +1816,7 @@ async function cancelSale() {
     showToast("取消发射交易已发起，请在钱包确认。");
     const tx = await saleVault.cancel();
     await tx.wait();
-    showToast("发射已取消，用户可申请退款");
+    showToast("发射已取消，可取回剩余 Token");
     await loadProjects();
   } catch (error) {
     console.error(error);
@@ -1730,47 +1824,11 @@ async function cancelSale() {
   }
 }
 
-async function claimRefund() {
-  const project = requireSelectedProject();
-  if (!project || !(await ensureWritable())) return;
-  if (!project.sale) {
-    showToast("当前神兽未开启认购。", "error");
-    return;
-  }
-
-  try {
-    const saleVault = selectedSaleVault(state.signer);
-    const purchased = await saleVault.purchased(state.account);
-    if (purchased === ZERO) {
-      showToast("当前钱包没有可退款的认购记录。");
-      return;
-    }
-
-    const token = new ethers.Contract(project.token, TOKEN_ABI, state.signer);
-    const allowance = await token.allowance(state.account, project.saleVault);
-    if (allowance < purchased) {
-      showToast("先授权退回认购 Token，请在钱包确认。");
-      const approveTx = await token.approve(project.saleVault, purchased);
-      await approveTx.wait();
-    }
-
-    showToast("退款交易已发起，请在钱包确认。");
-    const tx = await saleVault.claimRefund();
-    await tx.wait();
-    showToast("退款成功");
-    await loadProjects();
-    await renderIdentity();
-  } catch (error) {
-    console.error(error);
-    showToast(`退款失败：${shortError(error)}`, "error");
-  }
-}
-
 async function withdrawCancelledTokens() {
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable())) return;
   if (!project.sale) {
-    showToast("当前神兽未开启认购。", "error");
+    showToast("当前神兽未开启 Mint。", "error");
     return;
   }
 
@@ -2026,7 +2084,7 @@ async function copyTokenAddress() {
 }
 
 function showOfficialMintPlaceholder() {
-  showToast("官方 Mint 板块已预留，等 Mint 合约地址和 ABI 接入后即可开放。");
+  showToast("官方 Mint 板块已预留，接入 Mint 合约地址和 ABI 后即可开放。");
 }
 
 function showPlatformTokenPlaceholder() {
@@ -2092,6 +2150,10 @@ function bindEvents() {
 
   $$("[data-sale-buy-form]").forEach((form) => {
     form.addEventListener("submit", buySale);
+  });
+
+  $$("[data-sale-liquidity-form]").forEach((form) => {
+    form.addEventListener("submit", saveMintLiquidityConfig);
   });
 
   $$("[data-official-mint-form]").forEach((form) => {
@@ -2174,7 +2236,6 @@ function bindEvents() {
     if (action === "process-auto-dex") await processAutoDex();
     if (action === "trigger-evolution") await triggerEvolution();
     if (action === "copy-token") await copyTokenAddress();
-    if (action === "claim-refund") await claimRefund();
     if (action === "cancel-sale") await cancelSale();
     if (action === "withdraw-cancelled-tokens") await withdrawCancelledTokens();
     if (action === "platform-token-placeholder") showPlatformTokenPlaceholder();

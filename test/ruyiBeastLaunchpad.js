@@ -211,11 +211,18 @@ describe("Ruyi Beast Launchpad", function () {
     );
   });
 
-  it("supports a public sale vault and finalizes trading", async function () {
+  it("supports mint-based launch with automatic liquidity", async function () {
     const { creator, treasury, pair, alice, bob, launchpad } = await deployLaunchpad();
     const latest = await ethers.provider.getBlock("latest");
-    const saleSupply = ethers.parseEther("1000");
+    const saleSupply = ethers.parseEther("2000");
     const initialSupply = ethers.parseEther("10000");
+    const dead = "0x000000000000000000000000000000000000dEaD";
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    const routerAddress = await router.getAddress();
+    await launchpad.setDefaultMintLiquidityRouter(routerAddress);
 
     await launchpad.connect(creator).createBeast(directParams({
       initialSupply,
@@ -224,7 +231,7 @@ describe("Ruyi Beast Launchpad", function () {
       mintPrice: ethers.parseEther("0.001"),
       maxMintPerWallet: ethers.parseEther("600"),
       saleDeadline: latest.timestamp + 3600,
-      fundsReceiver: treasury.address
+      fundsReceiver: ethers.ZeroAddress
     }));
 
     const project = await launchpad.getProject(0);
@@ -235,27 +242,39 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.owner(), saleVaultAddress);
     assert.equal(await token.balanceOf(creator.address), initialSupply - saleSupply);
     assert.equal(await token.balanceOf(saleVaultAddress), saleSupply);
+    assert.equal(await saleVault.liquidityRouter(), routerAddress);
+    assert.equal(await saleVault.liquidityReceiver(), dead);
+    assert.equal(await saleVault.mintLiquidityEnabled(), true);
 
     await saleVault.connect(alice).buy(ethers.parseEther("400"), { value: ethers.parseEther("0.4") });
     await saleVault.connect(bob).buy(ethers.parseEther("600"), { value: ethers.parseEther("0.6") });
 
     assert.equal(await token.balanceOf(alice.address), ethers.parseEther("400"));
+    assert.equal(await token.balanceOf(bob.address), ethers.parseEther("600"));
+    assert.equal(await token.balanceOf(routerAddress), ethers.parseEther("1000"));
+    assert.equal(await ethers.provider.getBalance(routerAddress), ethers.parseEther("1"));
+    assert.equal(await router.liquidityNonce(), 2n);
     assert.equal(await saleVault.remainingSaleSupply(), 0n);
 
     const treasuryBefore = await ethers.provider.getBalance(treasury.address);
     await saleVault.connect(creator).finalize(pair.address);
     const treasuryAfter = await ethers.provider.getBalance(treasury.address);
 
-    assert.equal(treasuryAfter - treasuryBefore, ethers.parseEther("1"));
+    assert.equal(treasuryAfter - treasuryBefore, 0n);
     assert.equal(await token.owner(), creator.address);
     assert.equal(await token.tradingEnabled(), true);
     assert.equal(await token.controlsLocked(), true);
     assert.equal(await token.automatedMarketMakerPairs(pair.address), true);
   });
 
-  it("allows cancelled launch refunds after deadline", async function () {
+  it("allows cancellation only before any mint starts", async function () {
     const { creator, pair, alice, launchpad } = await deployLaunchpad();
     const latest = await ethers.provider.getBlock("latest");
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    await launchpad.setDefaultMintLiquidityRouter(await router.getAddress());
 
     await launchpad.connect(creator).createBeast(directParams({
       initialSupply: ethers.parseEther("10000"),
@@ -272,25 +291,59 @@ describe("Ruyi Beast Launchpad", function () {
     const saleVaultAddress = await launchpad.projectSaleVault(0);
     const saleVault = await ethers.getContractAt("RuyiBeastSaleVault", saleVaultAddress);
 
-    const bought = ethers.parseEther("100");
-    await saleVault.connect(alice).buy(bought, { value: ethers.parseEther("0.1") });
-
     await ethers.provider.send("evm_increaseTime", [11]);
     await ethers.provider.send("evm_mine", []);
 
     await saleVault.connect(creator).cancel();
-    await token.connect(alice).approve(saleVaultAddress, bought);
-    await saleVault.connect(alice).claimRefund();
 
-    assert.equal(await saleVault.purchased(alice.address), 0n);
     assert.equal(await saleVault.nativeRaised(), 0n);
-    assert.equal(await token.balanceOf(alice.address), 0n);
+    await assert.rejects(
+      saleVault.connect(alice).claimRefund(),
+      /auto-liquidity mint has no refunds/
+    );
 
     await saleVault.connect(creator).withdrawCancelledTokens(creator.address);
     assert.equal(await token.owner(), creator.address);
     await assert.rejects(
       saleVault.connect(creator).finalize(pair.address),
       /cancelled/
+    );
+  });
+
+  it("does not allow cancellation/refunds after mint liquidity starts", async function () {
+    const { creator, alice, launchpad } = await deployLaunchpad();
+    const latest = await ethers.provider.getBlock("latest");
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    await launchpad.setDefaultMintLiquidityRouter(await router.getAddress());
+
+    await launchpad.connect(creator).createBeast(directParams({
+      initialSupply: ethers.parseEther("10000"),
+      auraThreshold: ethers.parseEther("100"),
+      saleSupply: ethers.parseEther("1000"),
+      mintPrice: ethers.parseEther("0.001"),
+      maxMintPerWallet: ethers.parseEther("1000"),
+      saleDeadline: latest.timestamp + 10,
+      fundsReceiver: creator.address
+    }));
+
+    const saleVaultAddress = await launchpad.projectSaleVault(0);
+    const saleVault = await ethers.getContractAt("RuyiBeastSaleVault", saleVaultAddress);
+
+    await saleVault.connect(alice).buy(ethers.parseEther("100"), { value: ethers.parseEther("0.1") });
+
+    await ethers.provider.send("evm_increaseTime", [11]);
+    await ethers.provider.send("evm_mine", []);
+
+    await assert.rejects(
+      saleVault.connect(creator).cancel(),
+      /mint already started/
+    );
+    await assert.rejects(
+      saleVault.connect(alice).claimRefund(),
+      /auto-liquidity mint has no refunds/
     );
   });
 

@@ -1595,7 +1595,8 @@ input[type="file"]::file-selector-button {
   color: #9bf0a9;
 }
 
-.sale-panel[data-sale-state="未开启认购"] .sale-head strong,
+.sale-panel[data-sale-state="未开启 Mint"] .sale-head strong,
+.sale-panel[data-sale-state="待配置加池"] .sale-head strong,
 .sale-panel[data-sale-state="已取消"] .sale-head strong {
   background: rgba(217, 109, 85, 0.12);
   color: #ffb29e;
@@ -1646,6 +1647,10 @@ input[type="file"]::file-selector-button {
 
 .sale-form button {
   min-width: 132px;
+}
+
+.sale-liquidity-form {
+  grid-template-columns: minmax(180px, 1.2fr) minmax(120px, 0.6fr) minmax(180px, 1fr) auto;
 }
 
 .sale-actions {

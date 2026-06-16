@@ -38,7 +38,8 @@ contract RuyiBeastSaleVaultDeployer {
     function deploySaleVault(
         address token,
         address creator,
-        address fundsReceiver,
+        address liquidityReceiver,
+        address liquidityRouter,
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
@@ -48,7 +49,8 @@ contract RuyiBeastSaleVaultDeployer {
             new RuyiBeastSaleVault(
                 token,
                 creator,
-                fundsReceiver,
+                liquidityReceiver,
+                liquidityRouter,
                 saleSupply,
                 mintPrice,
                 maxMintPerWallet,

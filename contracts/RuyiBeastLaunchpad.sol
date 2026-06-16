@@ -26,7 +26,8 @@ interface IRuyiBeastSaleVaultDeployer {
     function deploySaleVault(
         address token,
         address creator,
-        address fundsReceiver,
+        address liquidityReceiver,
+        address liquidityRouter,
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
@@ -44,6 +45,7 @@ interface IRuyiLaunchToken is IERC20 {
 
 contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant DEFAULT_SUPPLY = 1_000_000_000 ether;
+    address public constant PANCAKE_V2_ROUTER_BSC = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
 
     enum BeastType {
         Qilin,
@@ -89,6 +91,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     address public immutable tokenDeployer;
     address public immutable saleVaultDeployer;
     address public platformTreasury;
+    address public defaultMintLiquidityRouter;
     uint256 public creationFee;
 
     BeastProject[] private _projects;
@@ -114,10 +117,12 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 mintPrice,
         uint256 maxMintPerWallet,
         uint256 saleDeadline,
-        address indexed fundsReceiver
+        address indexed liquidityReceiver,
+        address liquidityRouter
     );
     event CreationFeeUpdated(uint256 creationFee);
     event PlatformTreasuryUpdated(address indexed platformTreasury);
+    event DefaultMintLiquidityRouterUpdated(address indexed router);
     event NativeWithdrawn(address indexed to, uint256 amount);
     event DexOperatorUpdated(address indexed operator, bool enabled);
 
@@ -139,6 +144,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         creationFee = creationFee_;
         tokenDeployer = tokenDeployer_;
         saleVaultDeployer = saleVaultDeployer_;
+        if (block.chainid == 56) {
+            defaultMintLiquidityRouter = PANCAKE_V2_ROUTER_BSC;
+        }
         vault = new RuyiBeastVault(address(this));
     }
 
@@ -185,11 +193,13 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         IRuyiLaunchToken beastToken = IRuyiLaunchToken(token);
 
         if (saleEnabled) {
-            address receiver = params.fundsReceiver == address(0) ? msg.sender : params.fundsReceiver;
+            address receiver = params.fundsReceiver;
+            address mintRouter = defaultMintLiquidityRouter;
             address saleVault = IRuyiBeastSaleVaultDeployer(saleVaultDeployer).deploySaleVault(
                 token,
                 msg.sender,
                 receiver,
+                mintRouter,
                 params.saleSupply,
                 params.mintPrice,
                 params.maxMintPerWallet,
@@ -203,6 +213,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             beastToken.setFeeExempt(saleVault, true);
             beastToken.setTxLimitExempt(saleVault, true);
             beastToken.setExcludedFromDividends(saleVault, true);
+            if (mintRouter != address(0)) {
+                beastToken.setFeeExempt(mintRouter, true);
+                beastToken.setTxLimitExempt(mintRouter, true);
+                beastToken.setExcludedFromDividends(mintRouter, true);
+            }
             require(beastToken.transfer(saleVault, params.saleSupply), "RuyiLaunchpad: sale transfer failed");
             beastToken.transferOwnership(saleVault);
 
@@ -215,7 +230,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 params.mintPrice,
                 params.maxMintPerWallet,
                 params.saleDeadline,
-                receiver
+                receiver,
+                mintRouter
             );
         }
 
@@ -261,6 +277,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         require(newPlatformTreasury != address(0), "RuyiLaunchpad: zero treasury");
         platformTreasury = newPlatformTreasury;
         emit PlatformTreasuryUpdated(newPlatformTreasury);
+    }
+
+    function setDefaultMintLiquidityRouter(address router) external onlyOwner {
+        defaultMintLiquidityRouter = router;
+        emit DefaultMintLiquidityRouterUpdated(router);
     }
 
     function setEvolutionPayoutConfig(
