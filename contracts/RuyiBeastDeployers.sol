@@ -43,6 +43,8 @@ contract RuyiBeastSaleVaultDeployer {
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
+        uint256 whitelistMintLimit,
+        bool whitelistEnabled,
         uint256 saleDeadline
     ) external returns (address saleVault) {
         saleVault = address(
@@ -54,6 +56,8 @@ contract RuyiBeastSaleVaultDeployer {
                 saleSupply,
                 mintPrice,
                 maxMintPerWallet,
+                whitelistMintLimit,
+                whitelistEnabled,
                 saleDeadline
             )
         );

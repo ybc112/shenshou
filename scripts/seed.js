@@ -49,6 +49,8 @@ async function main() {
       saleSupply: 0,
       mintPrice: 0,
       maxMintPerWallet: 0,
+      whitelistMintLimit: 0,
+      whitelistEnabled: false,
       saleDeadline: 0,
       fundsReceiver: ethers.ZeroAddress
     });

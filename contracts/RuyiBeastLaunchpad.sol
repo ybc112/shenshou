@@ -31,6 +31,8 @@ interface IRuyiBeastSaleVaultDeployer {
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
+        uint256 whitelistMintLimit,
+        bool whitelistEnabled,
         uint256 saleDeadline
     ) external returns (address saleVault);
 }
@@ -69,6 +71,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 saleSupply;
         uint256 mintPrice;
         uint256 maxMintPerWallet;
+        uint256 whitelistMintLimit;
+        bool whitelistEnabled;
         uint256 saleDeadline;
         address fundsReceiver;
     }
@@ -116,6 +120,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
+        uint256 whitelistMintLimit,
+        bool whitelistEnabled,
         uint256 saleDeadline,
         address indexed liquidityReceiver,
         address liquidityRouter
@@ -166,12 +172,18 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         if (saleEnabled) {
             require(params.saleSupply <= initialSupply, "RuyiLaunchpad: sale exceeds supply");
             require(params.mintPrice > 0, "RuyiLaunchpad: zero mint price");
+            require(params.whitelistMintLimit <= params.saleSupply, "RuyiLaunchpad: bad whitelist limit");
+            if (params.whitelistEnabled) {
+                require(params.whitelistMintLimit > 0, "RuyiLaunchpad: zero whitelist limit");
+            }
             if (params.saleDeadline > 0) {
                 require(params.saleDeadline > block.timestamp, "RuyiLaunchpad: invalid deadline");
             }
         } else {
             require(params.mintPrice == 0, "RuyiLaunchpad: sale supply required");
             require(params.maxMintPerWallet == 0, "RuyiLaunchpad: sale supply required");
+            require(params.whitelistMintLimit == 0, "RuyiLaunchpad: sale supply required");
+            require(!params.whitelistEnabled, "RuyiLaunchpad: sale supply required");
             require(params.saleDeadline == 0, "RuyiLaunchpad: sale supply required");
             require(params.fundsReceiver == address(0), "RuyiLaunchpad: sale supply required");
         }
@@ -203,6 +215,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 params.saleSupply,
                 params.mintPrice,
                 params.maxMintPerWallet,
+                params.whitelistMintLimit,
+                params.whitelistEnabled,
                 params.saleDeadline
             );
 
@@ -229,6 +243,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 params.saleSupply,
                 params.mintPrice,
                 params.maxMintPerWallet,
+                params.whitelistMintLimit,
+                params.whitelistEnabled,
                 params.saleDeadline,
                 receiver,
                 mintRouter

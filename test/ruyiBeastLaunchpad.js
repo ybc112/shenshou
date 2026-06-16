@@ -40,6 +40,8 @@ describe("Ruyi Beast Launchpad", function () {
       saleSupply: 0,
       mintPrice: 0,
       maxMintPerWallet: 0,
+      whitelistMintLimit: 0,
+      whitelistEnabled: false,
       saleDeadline: 0,
       fundsReceiver: ethers.ZeroAddress,
       ...overrides
@@ -230,6 +232,8 @@ describe("Ruyi Beast Launchpad", function () {
       saleSupply,
       mintPrice: ethers.parseEther("0.001"),
       maxMintPerWallet: ethers.parseEther("600"),
+      whitelistMintLimit: 0,
+      whitelistEnabled: false,
       saleDeadline: latest.timestamp + 3600,
       fundsReceiver: ethers.ZeroAddress
     }));
@@ -267,6 +271,47 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.automatedMarketMakerPairs(pair.address), true);
   });
 
+  it("gates mint launch through whitelist quota before public mint", async function () {
+    const { creator, alice, bob, launchpad } = await deployLaunchpad();
+    const latest = await ethers.provider.getBlock("latest");
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    await launchpad.setDefaultMintLiquidityRouter(await router.getAddress());
+
+    await launchpad.connect(creator).createBeast(directParams({
+      initialSupply: ethers.parseEther("10000"),
+      auraThreshold: ethers.parseEther("100"),
+      saleSupply: ethers.parseEther("2000"),
+      mintPrice: ethers.parseEther("0.001"),
+      maxMintPerWallet: ethers.parseEther("1000"),
+      whitelistMintLimit: ethers.parseEther("300"),
+      whitelistEnabled: true,
+      saleDeadline: latest.timestamp + 3600,
+      fundsReceiver: ethers.ZeroAddress
+    }));
+
+    const saleVaultAddress = await launchpad.projectSaleVault(0);
+    const saleVault = await ethers.getContractAt("RuyiBeastSaleVault", saleVaultAddress);
+
+    await assert.rejects(
+      saleVault.connect(bob).buy(ethers.parseEther("100"), { value: ethers.parseEther("0.1") }),
+      /not whitelisted/
+    );
+
+    await saleVault.connect(creator).setWhitelistAccount(alice.address, true);
+    assert.equal(await saleVault.whitelistList(alice.address), true);
+    assert.equal(await saleVault.whitelistRemaining(alice.address), ethers.parseEther("300"));
+
+    await saleVault.connect(alice).buy(ethers.parseEther("300"), { value: ethers.parseEther("0.3") });
+    assert.equal(await saleVault.whitelistMinted(), ethers.parseEther("300"));
+    assert.equal(await saleVault.whitelistMintedByWallet(alice.address), ethers.parseEther("300"));
+
+    await saleVault.connect(bob).buy(ethers.parseEther("100"), { value: ethers.parseEther("0.1") });
+    assert.equal(await saleVault.publicMinted(), ethers.parseEther("100"));
+  });
+
   it("allows cancellation only before any mint starts", async function () {
     const { creator, pair, alice, launchpad } = await deployLaunchpad();
     const latest = await ethers.provider.getBlock("latest");
@@ -282,6 +327,8 @@ describe("Ruyi Beast Launchpad", function () {
       saleSupply: ethers.parseEther("1000"),
       mintPrice: ethers.parseEther("0.001"),
       maxMintPerWallet: ethers.parseEther("1000"),
+      whitelistMintLimit: 0,
+      whitelistEnabled: false,
       saleDeadline: latest.timestamp + 10,
       fundsReceiver: creator.address
     }));
@@ -325,6 +372,8 @@ describe("Ruyi Beast Launchpad", function () {
       saleSupply: ethers.parseEther("1000"),
       mintPrice: ethers.parseEther("0.001"),
       maxMintPerWallet: ethers.parseEther("1000"),
+      whitelistMintLimit: 0,
+      whitelistEnabled: false,
       saleDeadline: latest.timestamp + 10,
       fundsReceiver: creator.address
     }));

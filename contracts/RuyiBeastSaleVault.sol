@@ -33,13 +33,20 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
     uint256 public remainingSaleSupply;
     uint256 public immutable mintPrice;
     uint256 public immutable maxMintPerWallet;
+    uint256 public immutable whitelistMintLimit;
     uint256 public immutable saleDeadline;
     uint256 public nativeRaised;
+    uint256 public whitelistMinted;
+    uint256 public publicMinted;
+    uint256 public whitelistAccountCount;
 
     bool public finalized;
     bool public cancelled;
+    bool public whitelistEnabled;
 
     mapping(address => uint256) public purchased;
+    mapping(address => bool) public whitelistList;
+    mapping(address => uint256) public whitelistMintedByWallet;
 
     event BeastMinted(
         address indexed buyer,
@@ -54,6 +61,8 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         uint16 liquidityTokenBps,
         bool enabled
     );
+    event WhitelistEnabledUpdated(bool enabled);
+    event WhitelistAccountUpdated(address indexed account, bool listed);
     event LaunchFinalized(address indexed pair, uint256 nativeRaised, uint256 unsoldTokens);
     event LaunchCancelled();
     event LaunchRefunded(address indexed buyer, uint256 tokenAmount, uint256 nativeAmount);
@@ -72,12 +81,18 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         uint256 saleSupply_,
         uint256 mintPrice_,
         uint256 maxMintPerWallet_,
+        uint256 whitelistMintLimit_,
+        bool whitelistEnabled_,
         uint256 saleDeadline_
     ) {
         require(token_ != address(0), "RuyiSale: zero token");
         require(creator_ != address(0), "RuyiSale: zero creator");
         require(saleSupply_ > 0, "RuyiSale: zero sale supply");
         require(mintPrice_ > 0, "RuyiSale: zero mint price");
+        require(whitelistMintLimit_ <= saleSupply_, "RuyiSale: bad whitelist limit");
+        if (whitelistEnabled_) {
+            require(whitelistMintLimit_ > 0, "RuyiSale: zero whitelist limit");
+        }
         if (saleDeadline_ > 0) {
             require(saleDeadline_ > block.timestamp, "RuyiSale: invalid deadline");
         }
@@ -92,6 +107,8 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         remainingSaleSupply = saleSupply_;
         mintPrice = mintPrice_;
         maxMintPerWallet = maxMintPerWallet_;
+        whitelistMintLimit = whitelistMintLimit_;
+        whitelistEnabled = whitelistEnabled_;
         saleDeadline = saleDeadline_;
     }
 
@@ -121,6 +138,33 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         emit MintLiquidityConfigUpdated(router, liquidityReceiver, liquidityTokenBps_, enabled);
     }
 
+    function setWhitelistEnabled(bool enabled) external onlyCreator {
+        if (enabled) {
+            require(whitelistMintLimit > 0, "RuyiSale: zero whitelist limit");
+        }
+        whitelistEnabled = enabled;
+        emit WhitelistEnabledUpdated(enabled);
+    }
+
+    function setWhitelistAccount(address account, bool listed) external onlyCreator {
+        require(account != address(0), "RuyiSale: zero account");
+        _setWhitelistAccount(account, listed);
+    }
+
+    function setWhitelistAccounts(address[] calldata accounts, bool listed) external onlyCreator {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            require(accounts[i] != address(0), "RuyiSale: zero account");
+            _setWhitelistAccount(accounts[i], listed);
+        }
+    }
+
+    function whitelistRemaining(address account) external view returns (uint256) {
+        if (!whitelistEnabled || !whitelistList[account] || whitelistMinted >= whitelistMintLimit) {
+            return 0;
+        }
+        return whitelistMintLimit - whitelistMinted;
+    }
+
     function buy(uint256 tokenAmount) external payable nonReentrant {
         require(tokenAmount > 0, "RuyiSale: zero amount");
         require(!finalized, "RuyiSale: finalized");
@@ -134,6 +178,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         if (maxMintPerWallet > 0) {
             require(nextPurchased <= maxMintPerWallet, "RuyiSale: wallet limit");
         }
+        _consumeMintQuota(msg.sender, tokenAmount);
 
         uint256 liquidityTokenAmount = (tokenAmount * liquidityTokenBps) / BPS;
         uint256 totalTokenAmount = tokenAmount + liquidityTokenAmount;
@@ -162,6 +207,43 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         _sendNative(payable(msg.sender), msg.value - cost, "RuyiSale: refund failed");
 
         emit BeastMinted(msg.sender, tokenAmount, liquidityTokenAmount, cost, liquidity);
+    }
+
+    function _consumeMintQuota(address buyer, uint256 tokenAmount) private {
+        uint256 remainingAmount = tokenAmount;
+        bool whitelistPhaseActive = whitelistEnabled && whitelistMinted < whitelistMintLimit;
+
+        if (whitelistPhaseActive) {
+            require(whitelistList[buyer], "RuyiSale: not whitelisted");
+
+            uint256 remainingWhitelist = whitelistMintLimit - whitelistMinted;
+            uint256 whitelistAmount = remainingAmount < remainingWhitelist ? remainingAmount : remainingWhitelist;
+            remainingAmount -= whitelistAmount;
+
+            bool whitelistFilledAfterThisMint = whitelistMinted + whitelistAmount >= whitelistMintLimit;
+            require(remainingAmount == 0 || whitelistFilledAfterThisMint, "RuyiSale: whitelist active");
+
+            whitelistMinted += whitelistAmount;
+            whitelistMintedByWallet[buyer] += whitelistAmount;
+        }
+
+        publicMinted += remainingAmount;
+    }
+
+    function _setWhitelistAccount(address account, bool listed) private {
+        bool wasListed = whitelistList[account];
+        if (wasListed == listed) {
+            return;
+        }
+
+        whitelistList[account] = listed;
+        if (listed) {
+            whitelistAccountCount += 1;
+        } else {
+            whitelistAccountCount -= 1;
+        }
+
+        emit WhitelistAccountUpdated(account, listed);
     }
 
     function finalize(address pair) external nonReentrant onlyCreator {

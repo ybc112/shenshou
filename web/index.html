@@ -70,17 +70,23 @@
           </div>
         </header>
 
-        <section class="chain-banner" data-config-banner>
-          <div>
-            <strong>合约连接</strong>
+        <section class="chain-banner factory-banner" data-config-banner>
+          <div class="factory-copy">
+            <span>OPEN FACTORY</span>
+            <strong>工厂合约公开透明</strong>
             <p data-connection-status>请配置发射台合约地址，或先部署合约生成地址。</p>
+          </div>
+          <div class="factory-points">
+            <div><i data-lucide="badge-check"></i><span>工厂开源</span></div>
+            <div><i data-lucide="flame"></i><span>Mint 自动加池</span></div>
+            <div><i data-lucide="lock-keyhole"></i><span>LP 默认黑洞</span></div>
           </div>
           <form class="address-form" data-address-form>
             <label>
-              <span>Launchpad 地址</span>
+              <span>Factory / Launchpad</span>
               <input type="text" name="launchpad" placeholder="0x..." autocomplete="off" />
             </label>
-            <button class="outline-button" type="submit"><i data-lucide="plug-zap"></i><span>保存并读取</span></button>
+            <button class="outline-button" type="submit"><i data-lucide="plug-zap"></i><span>读取链上数据</span></button>
           </form>
         </section>
 
@@ -169,6 +175,9 @@
                   <div><span>LP 接收</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
+                  <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
+                  <div><span>白名单额度</span><strong data-sale-whitelist-quota>--</strong></div>
+                  <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
                   <label><span>Mint 数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入 Mint 数量" /></label>
@@ -179,6 +188,12 @@
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
                   <label><span>LP 接收</span><input name="liquidityReceiver" type="text" placeholder="留空默认黑洞" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
+                </form>
+                <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                  <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
+                  <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
+                  <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
+                  <button class="outline-button" type="submit"><i data-lucide="list-plus"></i><span>更新白名单</span></button>
                 </form>
                 <form class="sale-form sale-owner-form" data-sale-owner-form>
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
@@ -224,7 +239,9 @@
                 <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
                 <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
+                <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
                 <label><span>Mint 截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+                <label class="check-field"><input name="whitelistEnabled" type="checkbox" /><span>开启白名单 Mint</span></label>
                 <label class="form-wide"><span>LP 接收地址</span><input name="fundsReceiver" type="text" placeholder="留空默认黑洞地址" /></label>
                 <div class="form-wide avatar-upload" data-avatar-upload>
                   <span>神兽头像</span>
@@ -382,7 +399,9 @@
             <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
             <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
             <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
+            <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
             <label><span>Mint 截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+            <label class="check-field"><input name="whitelistEnabled" type="checkbox" /><span>开启白名单 Mint</span></label>
             <label class="form-wide"><span>LP 接收地址</span><input name="fundsReceiver" type="text" placeholder="留空默认黑洞地址" /></label>
             <div class="form-wide avatar-upload" data-avatar-upload>
               <span>神兽头像</span>
@@ -474,6 +493,9 @@
                   <div><span>LP 接收</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
+                  <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
+                  <div><span>白名单额度</span><strong data-sale-whitelist-quota>--</strong></div>
+                  <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
                   <label><span>Mint 数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入 Mint 数量" /></label>
@@ -484,6 +506,12 @@
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
                   <label><span>LP 接收</span><input name="liquidityReceiver" type="text" placeholder="留空默认黑洞" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
+                </form>
+                <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                  <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
+                  <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
+                  <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
+                  <button class="outline-button" type="submit"><i data-lucide="list-plus"></i><span>更新白名单</span></button>
                 </form>
                 <form class="sale-form sale-owner-form" data-sale-owner-form>
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>

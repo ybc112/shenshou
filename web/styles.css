@@ -289,12 +289,52 @@ dd {
 
 .chain-banner {
   display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(230px, 0.75fr) minmax(260px, 0.8fr) minmax(360px, 1fr);
   gap: 18px;
   align-items: center;
   margin-top: 22px;
   padding: 16px 18px;
   border-color: rgba(217, 164, 68, 0.28);
+}
+
+.factory-banner {
+  background:
+    linear-gradient(135deg, rgba(19, 63, 57, 0.58), rgba(7, 12, 20, 0.96)),
+    radial-gradient(circle at 82% 12%, rgba(245, 205, 114, 0.16), transparent 30%);
+}
+
+.factory-copy > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #7ef0c1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.factory-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.factory-points div {
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  border: 1px solid rgba(217, 164, 68, 0.22);
+  border-radius: 8px;
+  background: rgba(7, 9, 17, 0.34);
+  color: #f7e6b8;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.factory-points i {
+  width: 20px;
+  height: 20px;
+  color: #84e7bd;
 }
 
 .chain-banner[data-connected="true"] {
@@ -332,7 +372,8 @@ label span {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -343,8 +384,15 @@ select {
   outline: none;
 }
 
+textarea {
+  min-height: 76px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: rgba(217, 164, 68, 0.6);
   box-shadow: 0 0 0 3px rgba(217, 164, 68, 0.12);
 }
@@ -1608,6 +1656,11 @@ input[type="file"]::file-selector-button {
   color: #9bd8ff;
 }
 
+.sale-panel[data-sale-state="白名单 Mint"] .sale-head strong {
+  background: rgba(245, 205, 114, 0.14);
+  color: #ffe6a2;
+}
+
 .sale-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1651,6 +1704,35 @@ input[type="file"]::file-selector-button {
 
 .sale-liquidity-form {
   grid-template-columns: minmax(180px, 1.2fr) minmax(120px, 0.6fr) minmax(180px, 1fr) auto;
+}
+
+.sale-whitelist-form {
+  grid-template-columns: minmax(260px, 1fr) minmax(120px, auto) minmax(110px, auto) auto;
+  align-items: stretch;
+}
+
+.check-field {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(7, 9, 17, 0.28);
+  color: #e7d7ad;
+  font-weight: 800;
+}
+
+.check-field input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  accent-color: #d9a444;
+}
+
+.check-field span {
+  margin: 0;
 }
 
 .sale-actions {
@@ -2307,6 +2389,16 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .factory-points {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .factory-points div {
+    min-height: 48px;
+    padding: 6px;
+    font-size: 11px;
+  }
+
   .right-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2934,10 +3026,10 @@ body {
 }
 
 .chain-banner {
-  grid-template-columns: minmax(280px, 0.8fr) minmax(520px, 1.2fr);
-  min-height: 126px;
+  grid-template-columns: minmax(240px, 0.75fr) minmax(270px, 0.8fr) minmax(380px, 1fr);
+  min-height: 118px;
   margin-top: 18px;
-  padding: 22px 28px;
+  padding: 20px 24px;
 }
 
 .chain-banner strong {
