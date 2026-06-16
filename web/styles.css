@@ -352,15 +352,39 @@ dd {
   color: var(--muted);
 }
 
-.address-form,
 .create-form {
   display: grid;
   gap: 12px;
 }
 
-.address-form {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+.factory-address {
+  min-width: 0;
+  border: 1px solid rgba(217, 164, 68, 0.22);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background:
+    linear-gradient(180deg, rgba(7, 9, 17, 0.48), rgba(7, 9, 17, 0.26));
+}
+
+.factory-address span,
+.factory-address small {
+  display: block;
+  color: #d6c8a4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.factory-address strong {
+  display: block;
+  margin: 8px 0;
+  color: #fff5cf;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.factory-address small {
+  color: rgba(216, 207, 181, 0.74);
+  line-height: 1.45;
 }
 
 label span {
@@ -2602,8 +2626,7 @@ button:disabled {
   .admin-form,
   .admin-form.dex-form,
   .dex-summary,
-  .sale-form,
-  .address-form {
+  .sale-form {
     grid-template-columns: 1fr;
   }
 
@@ -3432,7 +3455,6 @@ input::placeholder {
   }
 
   .chain-banner,
-  .address-form,
   .status-strip,
   .right-column,
   .detail-grid,

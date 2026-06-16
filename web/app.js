@@ -414,10 +414,8 @@ function readTextBytes(value) {
 }
 
 function getStoredLaunchpadAddress() {
-  const fromStorage = localStorage.getItem("ruyi.launchpadAddress") || "";
-  const fromCurrentStorage = localStorage.getItem("beast.launchpadAddress") || "";
   const fromConfig = window.RUYI_CONFIG?.launchpadAddress || "";
-  return fromConfig || fromCurrentStorage || fromStorage;
+  return fromConfig;
 }
 
 async function makeProvider() {
@@ -438,11 +436,10 @@ async function makeProvider() {
 
 async function connectContracts() {
   state.launchpadAddress = getStoredLaunchpadAddress().trim();
-  const input = $("[data-address-form] input[name='launchpad']");
-  if (input) input.value = state.launchpadAddress;
+  updateFactoryAddressDisplay(state.launchpadAddress);
 
   if (!state.launchpadAddress || !ethers.isAddress(state.launchpadAddress)) {
-    updateConnectionStatus("请填写有效的 Launchpad 合约地址。", false);
+    updateConnectionStatus("后台暂未配置 Launchpad 合约地址。", false);
     clearChainData();
     return false;
   }
@@ -457,8 +454,13 @@ async function connectContracts() {
   const network = await state.provider.getNetwork();
   setText("[data-stat='networkName']", network.name === "unknown" ? `Chain ${network.chainId}` : network.name);
   setText("[data-creation-fee]", `${formatToken(state.creationFee)} ${NATIVE_SYMBOL}`);
+  updateFactoryAddressDisplay(state.launchpadAddress);
   updateConnectionStatus(`已连接 Launchpad ${shortAddress(state.launchpadAddress)}，Vault ${shortAddress(state.vaultAddress)}。`, true);
   return true;
+}
+
+function updateFactoryAddressDisplay(address) {
+  setText("[data-factory-address]", address && ethers.isAddress(address) ? shortAddress(address) : "后台配置中");
 }
 
 function updateConnectionStatus(message, ok) {
@@ -2270,17 +2272,6 @@ function setActiveButton(button) {
 }
 
 function bindEvents() {
-  $("[data-address-form]")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const address = new FormData(event.currentTarget).get("launchpad").trim();
-    if (!ethers.isAddress(address)) {
-      showToast("请输入有效的合约地址。", "error");
-      return;
-    }
-    localStorage.setItem("beast.launchpadAddress", address);
-    await bootstrap();
-  });
-
   $$("[data-create-form]").forEach((form) => {
     form.addEventListener("submit", createBeast);
   });

@@ -81,13 +81,11 @@
             <div><i data-lucide="flame"></i><span>Mint 自动加池</span></div>
             <div><i data-lucide="lock-keyhole"></i><span>LP 默认黑洞</span></div>
           </div>
-          <form class="address-form" data-address-form>
-            <label>
-              <span>Factory / Launchpad</span>
-              <input type="text" name="launchpad" placeholder="0x..." autocomplete="off" />
-            </label>
-            <button class="outline-button" type="submit"><i data-lucide="plug-zap"></i><span>读取链上数据</span></button>
-          </form>
+          <div class="factory-address">
+            <span>Factory / Launchpad</span>
+            <strong data-factory-address>后台配置中</strong>
+            <small>地址由后台配置，前台只读取链上数据。</small>
+          </div>
         </section>
 
         <div class="content-grid page-view active" data-page="home">
