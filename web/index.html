@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260616-open" />
+    <link rel="stylesheet" href="./styles.css?v=20260616-mint" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -26,6 +26,7 @@
           <button class="nav-item" type="button" data-nav="#create"><span class="nav-icon"><i data-lucide="sparkles"></i></span><span>创建神兽</span></button>
           <button class="nav-item" type="button" data-nav="#rank"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span>进化榜</span></button>
           <button class="nav-item" type="button" data-nav="#reward"><span class="nav-icon"><i data-lucide="gift"></i></span><span>奖励中心</span></button>
+          <button class="nav-item" type="button" data-nav="#mint"><span class="nav-icon"><i data-lucide="gem"></i></span><span>官方 Mint</span></button>
           <button class="nav-item" type="button" data-nav="#platform"><span class="nav-icon"><i data-lucide="coins"></i></span><span>平台币</span></button>
           <button class="nav-item" type="button" data-nav="#data"><span class="nav-icon"><i data-lucide="pie-chart"></i></span><span>数据中心</span></button>
           <button class="nav-item" type="button" data-nav="#help"><span class="nav-icon"><i data-lucide="message-circle-question"></i></span><span>帮助中心</span></button>
@@ -58,6 +59,7 @@
             <a href="#create">创建神兽</a>
             <a href="#rank">进化榜</a>
             <a href="#reward">奖励中心</a>
+            <a href="#mint">官方 Mint</a>
             <a href="#platform">平台币</a>
             <a href="#data">数据中心</a>
             <a href="#help">帮助中心</a>
@@ -136,7 +138,10 @@
                   <span>当前兽巢</span>
                   <h2 data-selected-name>请选择一只神兽</h2>
                 </div>
-                <span class="contract-pill" data-selected-token>Token: --</span>
+                <div class="token-actions">
+                  <span class="contract-pill" data-selected-token>Token: --</span>
+                  <button class="icon-button token-copy-button" type="button" data-action="copy-token" aria-label="复制 Token 合约"><i data-lucide="copy"></i></button>
+                </div>
               </div>
               <div class="detail-grid">
                 <div class="detail-metric"><span>阶段</span><strong data-selected-stage>--</strong></div>
@@ -178,20 +183,6 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
-              <section class="mint-panel" data-official-mint-panel>
-                <div class="mint-head">
-                  <div>
-                    <span>官方 Mint</span>
-                    <strong>预留接入位</strong>
-                  </div>
-                  <small>等你的神兽 Mint 合约部署好后，把地址和 ABI 接到这里，用户就能直接来 mint。</small>
-                </div>
-                <form class="mint-form" data-official-mint-form>
-                  <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
-                  <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
-                  <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
-                </form>
-              </section>
               <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
@@ -419,6 +410,9 @@
             </div>
             <button class="outline-button" type="button" data-action="refresh"><i data-lucide="refresh-cw"></i><span>刷新榜单</span></button>
           </div>
+          <div class="page-toolbar rank-toolbar">
+            <label><span>搜索神兽</span><input type="text" data-rank-search placeholder="名称 / 符号 / Token 合约 / 创建者地址" /></label>
+          </div>
           <div class="rank-layout">
             <section class="rank-table-card">
               <table class="data-table">
@@ -442,7 +436,10 @@
                   <span>榜单选中</span>
                   <h2 data-selected-name>请选择一只神兽</h2>
                 </div>
-                <span class="contract-pill" data-selected-token>Token: --</span>
+                <div class="token-actions">
+                  <span class="contract-pill" data-selected-token>Token: --</span>
+                  <button class="icon-button token-copy-button" type="button" data-action="copy-token" aria-label="复制 Token 合约"><i data-lucide="copy"></i></button>
+                </div>
               </div>
               <div class="detail-grid">
                 <div class="detail-metric"><span>阶段</span><strong data-selected-stage>--</strong></div>
@@ -484,20 +481,6 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
-              <section class="mint-panel" data-official-mint-panel>
-                <div class="mint-head">
-                  <div>
-                    <span>官方 Mint</span>
-                    <strong>预留接入位</strong>
-                  </div>
-                  <small>等你的神兽 Mint 合约部署好后，把地址和 ABI 接到这里，用户就能直接来 mint。</small>
-                </div>
-                <form class="mint-form" data-official-mint-form>
-                  <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
-                  <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
-                  <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
-                </form>
-              </section>
               <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
@@ -552,6 +535,43 @@
             </section>
           </div>
           <div class="mini-card-grid" data-reward-projects></div>
+        </section>
+
+        <section class="page-view page-panel" data-page="mint">
+          <div class="page-header">
+            <div>
+              <span>OFFICIAL MINT</span>
+              <h1>官方 Mint</h1>
+              <p>这里单独预留神兽 Mint 入口，等你的 Mint 合约部署好后接入地址、价格和数量限制。</p>
+            </div>
+            <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
+          </div>
+          <section class="mint-panel mint-page-panel" data-official-mint-panel>
+            <div class="mint-head">
+              <div>
+                <span>Mint 状态</span>
+                <strong>预留接入位</strong>
+              </div>
+              <small>当前还没有接入 Mint 合约。后续填入合约地址和 ABI 后，用户可在这个页面直接 Mint。</small>
+            </div>
+            <form class="mint-form" data-official-mint-form>
+              <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
+              <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
+              <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
+            </form>
+          </section>
+          <section class="help-grid mint-help-grid">
+            <article class="help-card">
+              <span>接入后显示</span>
+              <h2>合约信息</h2>
+              <p>Mint 合约地址、Mint 价格、总量、已 Mint 数量、单钱包限制和开放状态都会显示在这里。</p>
+            </article>
+            <article class="help-card">
+              <span>用户操作</span>
+              <h2>一键 Mint</h2>
+              <p>用户连接钱包后输入数量，确认钱包交易即可完成 Mint，不再混在神兽详情页里。</p>
+            </article>
+          </section>
         </section>
 
         <section class="page-view page-panel" data-page="data">
@@ -669,12 +689,13 @@
       <button class="active" type="button" data-nav="#home"><i data-lucide="home"></i><span>首页</span></button>
       <button type="button" data-nav="#create"><i data-lucide="sparkles"></i><span>创建</span></button>
       <button type="button" data-nav="#rank"><i data-lucide="bar-chart-3"></i><span>兽巢</span></button>
+      <button type="button" data-nav="#mint"><i data-lucide="gem"></i><span>Mint</span></button>
       <button type="button" data-nav="#platform"><i data-lucide="coins"></i><span>平台</span></button>
       <button type="button" data-nav="#reward"><i data-lucide="gift"></i><span>奖励</span></button>
     </div>
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260616-open"></script>
+    <script src="./app.js?v=20260616-mint"></script>
   </body>
 </html>

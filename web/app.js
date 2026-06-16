@@ -73,7 +73,7 @@ const SALE_VAULT_ABI = [
 const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
-const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "data", "help"];
+const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "mint", "platform", "data", "help"];
 const ZERO = 0n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -1069,12 +1069,25 @@ function renderRankTable() {
   const tbody = $("[data-rank-table]");
   if (!tbody) return;
 
+  const keyword = ($("[data-rank-search]")?.value || "").trim().toLowerCase();
+  const projects = !keyword
+    ? [...state.projects]
+    : state.projects.filter((project) => {
+        return [project.beastName, project.tokenName, project.symbol, project.token, project.creator]
+          .some((value) => String(value || "").toLowerCase().includes(keyword));
+      });
+
   if (state.projects.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7">暂无链上神兽数据</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = [...state.projects]
+  if (projects.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7">没有匹配的神兽，换个名称、符号或合约地址再搜。</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = projects
     .sort((a, b) => b.progress - a.progress || b.stage - a.stage)
     .map((project, index) => {
       const pools = normalizePools(project.pools);
@@ -1982,11 +1995,34 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function copyTokenAddress() {
+async function copyText(text) {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {
+    // Fall through to the legacy selection copy path below.
+  }
+
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "readonly");
+  input.style.position = "fixed";
+  input.style.left = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  const ok = document.execCommand("copy");
+  input.remove();
+  return ok;
+}
+
+async function copyTokenAddress() {
   const project = requireSelectedProject();
   if (!project) return;
-  navigator.clipboard?.writeText(project.token);
-  showToast("Token 地址已复制");
+  const copied = await copyText(project.token);
+  showToast(copied ? "Token 合约地址已复制" : "复制失败，请手动长按合约地址复制", copied ? "success" : "error");
 }
 
 function showOfficialMintPlaceholder() {
@@ -2137,7 +2173,7 @@ function bindEvents() {
     if (action === "open-reward-round") await openRewardRound();
     if (action === "process-auto-dex") await processAutoDex();
     if (action === "trigger-evolution") await triggerEvolution();
-    if (action === "copy-token") copyTokenAddress();
+    if (action === "copy-token") await copyTokenAddress();
     if (action === "claim-refund") await claimRefund();
     if (action === "cancel-sale") await cancelSale();
     if (action === "withdraw-cancelled-tokens") await withdrawCancelledTokens();
@@ -2174,6 +2210,7 @@ function bindEvents() {
   ["input", "change"].forEach((eventName) => {
     $("[data-project-search]")?.addEventListener(eventName, renderProjects);
     $("[data-project-sort]")?.addEventListener(eventName, renderProjects);
+    $("[data-rank-search]")?.addEventListener(eventName, renderRankTable);
   });
 
   window.addEventListener("hashchange", () => showPage(pageFromHash(), { updateHash: false }));

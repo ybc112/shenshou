@@ -750,6 +750,11 @@ input[type="file"]::file-selector-button {
   padding: 16px;
 }
 
+.rank-toolbar {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 16px;
+}
+
 .hall-grid {
   grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
 }
@@ -1488,6 +1493,13 @@ input[type="file"]::file-selector-button {
   gap: 14px;
 }
 
+.token-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .selected-head span:first-child {
   display: block;
   color: var(--muted);
@@ -1512,6 +1524,18 @@ input[type="file"]::file-selector-button {
   color: #e6c983;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.token-copy-button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+
+.token-copy-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .detail-grid {
@@ -1645,6 +1669,10 @@ input[type="file"]::file-selector-button {
   background:
     linear-gradient(135deg, rgba(84, 211, 109, 0.09), transparent 54%),
     rgba(7, 9, 17, 0.34);
+}
+
+.mint-page-panel {
+  margin-bottom: 18px;
 }
 
 .mint-head {
@@ -2255,6 +2283,12 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .rank-table-card {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .metric-grid,
   .help-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2528,7 +2562,7 @@ button:disabled {
     bottom: 12px;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 6px;
     padding: 8px;
     border: 1px solid var(--line-soft);
@@ -3388,7 +3422,7 @@ input::placeholder {
   }
 
   .mobile-dock {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px;
   }
 
