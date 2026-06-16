@@ -1578,7 +1578,7 @@ input[type="file"]::file-selector-button {
 }
 
 .sale-panel[data-sale-state="已开盘"] .sale-head strong,
-.sale-panel[data-sale-state="已售完"] .sale-head strong {
+.sale-panel[data-sale-state="可开盘"] .sale-head strong {
   background: rgba(88, 184, 255, 0.12);
   color: #9bd8ff;
 }
@@ -2338,20 +2338,24 @@ button:disabled {
   }
 
   .workspace {
-    padding: 0 12px 84px;
+    padding: 0 12px 112px;
   }
 
   .topbar {
     min-height: 62px;
-    gap: 10px;
+    gap: 8px;
+    margin: 0 -12px;
+    padding: 0 12px;
   }
 
   .top-tabs {
-    gap: 18px;
+    gap: 22px;
+    padding-right: 8px;
   }
 
   .top-tabs a {
     min-height: 62px;
+    font-size: 15px;
   }
 
   .icon-button {
@@ -2359,8 +2363,11 @@ button:disabled {
   }
 
   .wallet-button {
-    min-height: 38px;
-    padding: 0 12px;
+    width: 54px;
+    min-width: 54px;
+    min-height: 54px;
+    padding: 0;
+    border-radius: 8px;
   }
 
   .wallet-button span {
@@ -2513,7 +2520,7 @@ button:disabled {
     bottom: 12px;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 6px;
     padding: 8px;
     border: 1px solid var(--line-soft);

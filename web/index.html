@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260615" />
+    <link rel="stylesheet" href="./styles.css?v=20260616-bnb" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -223,7 +223,7 @@
                 <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
                 <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="输入进化阈值" /></label>
                 <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="留空则不开启" /></label>
-                <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
+                <label><span>认购单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
                 <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
@@ -381,7 +381,7 @@
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
             <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="输入进化阈值" /></label>
             <label><span>认购发射数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="留空则不开启" /></label>
-            <label><span>认购单价 ETH/BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
+            <label><span>认购单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入认购单价" /></label>
             <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
             <label><span>认购截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
             <label class="form-wide"><span>认购收款地址</span><input name="fundsReceiver" type="text" placeholder="留空默认创建者钱包" /></label>
@@ -673,6 +673,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260615-palace"></script>
+    <script src="./app.js?v=20260616-bnb"></script>
   </body>
 </html>

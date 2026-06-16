@@ -8,6 +8,7 @@ const LAUNCHPAD_ABI = [
   "function projectSaleVault(uint256 projectId) view returns (address)",
   "function getProjects(uint256 offset,uint256 limit) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt)[] projects)",
   "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)",
+  "function setEvolutionPayoutConfig(address token,uint16 burnBps,uint16 rewardDividendBps)",
   "function setRewardConfig(address token,uint16 talismanChanceBps,uint16 talismanPrizeBps,uint16 luckyPrizeBps,uint16 luckyModulo,uint256 minHoldAmount,bool enabled)",
   "function openRewardRound(address token) returns (uint256 round)",
   "function assignLuckyNumber(address token) returns (uint16 number)",
@@ -39,6 +40,7 @@ const TOKEN_ABI = [
 
 const VAULT_ABI = [
   "function poolBalances(address token) view returns (uint256 evolution,uint256 fortune,uint256 risk,uint256 reward,uint256 treasury,uint256 burned,uint256 dividendReserve,uint256 dividendsDistributed,uint256 dividendsPaid)",
+  "function evolutionPayoutConfigs(address token) view returns (uint16 burnBps,uint16 rewardDividendBps)",
   "function rewardConfigs(address token) view returns (uint16 talismanChanceBps,uint16 talismanPrizeBps,uint16 luckyPrizeBps,uint16 luckyModulo,uint256 minHoldAmount,bool enabled)",
   "function dexConfigs(address token) view returns (address router,address pairedToken,address pair,address liquidityReceiver,address buybackRecipient,bool nativePair,bool burnBuyback,bool enabled,uint16 autoBuybackBps,uint16 autoLiquidityBps,uint256 autoProcessThreshold,uint256 autoProcessLimit)",
   "function talismanRound(address token) view returns (uint256)",
@@ -73,6 +75,7 @@ const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "d
 const ZERO = 0n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const NATIVE_SYMBOL = "BNB";
 const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
 const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
 const AVATAR_MAX_SOURCE_BYTES = 1024 * 1024;
@@ -188,9 +191,13 @@ function saleStatusLabel(project) {
   if (!sale) return "未开启认购";
   if (sale.cancelled) return "已取消";
   if (sale.finalized || project.tradingEnabled) return "已开盘";
-  if (sale.remainingSaleSupply === ZERO) return "已售完";
-  if (sale.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline) return "等待结算";
+  if (sale.remainingSaleSupply === ZERO) return "可开盘";
+  if (sale.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline) return "可开盘";
   return "认购中";
+}
+
+function saleDeadlineExpired(sale) {
+  return Boolean(sale?.saleDeadline > ZERO && BigInt(Math.floor(Date.now() / 1000)) > sale.saleDeadline);
 }
 
 function setDisabled(selector, disabled) {
@@ -418,7 +425,7 @@ async function connectContracts() {
 
   const network = await state.provider.getNetwork();
   setText("[data-stat='networkName']", network.name === "unknown" ? `Chain ${network.chainId}` : network.name);
-  setText("[data-creation-fee]", `${formatToken(state.creationFee)} ETH/BNB`);
+  setText("[data-creation-fee]", `${formatToken(state.creationFee)} ${NATIVE_SYMBOL}`);
   updateConnectionStatus(`已连接 Launchpad ${shortAddress(state.launchpadAddress)}，Vault ${shortAddress(state.vaultAddress)}。`, true);
   return true;
 }
@@ -483,6 +490,7 @@ async function enrichProject(project) {
     buyTaxBps,
     sellTaxBps,
     platformTaxShareBps,
+    evolutionConfig,
     rewardConfig,
     dexConfig,
     saleVault
@@ -497,6 +505,7 @@ async function enrichProject(project) {
     token.totalFeeBps(false).catch(() => 300n),
     token.totalFeeBps(true).catch(() => 500n),
     token.PLATFORM_TAX_SHARE_BPS().catch(() => DEFAULT_PLATFORM_TAX_SHARE_BPS),
+    state.vault.evolutionPayoutConfigs(project.token).catch(() => null),
     state.vault.rewardConfigs(project.token).catch(() => null),
     state.vault.dexConfigs(project.token).catch(() => null),
     state.launchpad.projectSaleVault(project.id).catch(() => ZERO_ADDRESS)
@@ -520,6 +529,7 @@ async function enrichProject(project) {
     buyTaxBps: BigInt(buyTaxBps),
     sellTaxBps: BigInt(sellTaxBps),
     platformTaxShareBps: BigInt(platformTaxShareBps),
+    evolutionConfig: normalizeEvolutionConfig(evolutionConfig),
     rewardConfig: normalizeRewardConfig(rewardConfig),
     dexConfig: normalizeDexConfig(dexConfig),
     saleVault,
@@ -653,6 +663,20 @@ function normalizeRewardConfig(config) {
     luckyModulo: BigInt(config.luckyModulo ?? config[3]),
     minHoldAmount: BigInt(config.minHoldAmount ?? config[4]),
     enabled: Boolean(config.enabled ?? config[5])
+  };
+}
+
+function normalizeEvolutionConfig(config) {
+  if (!config) {
+    return {
+      burnBps: 5000n,
+      rewardDividendBps: 5000n
+    };
+  }
+
+  return {
+    burnBps: BigInt(config.burnBps ?? config[0]),
+    rewardDividendBps: BigInt(config.rewardDividendBps ?? config[1])
   };
 }
 
@@ -837,8 +861,8 @@ function renderSalePanel(project) {
   const hasSale = Boolean(sale);
   const canBuy = hasSale && status === "认购中";
   const canRefund = hasSale && sale.cancelled;
-  const canFinalize = hasSale && (status === "已售完" || status === "等待结算");
-  const canCancel = hasSale && status === "等待结算" && sale.remainingSaleSupply > ZERO;
+  const canFinalize = hasSale && status === "可开盘";
+  const canCancel = hasSale && saleDeadlineExpired(sale) && sale.remainingSaleSupply > ZERO;
   const canWithdraw = hasSale && sale.cancelled && sale.nativeRaised === ZERO;
   const isSaleCreator = hasSale && state.account && sameAddress(state.account, sale.creator);
 
@@ -848,12 +872,12 @@ function renderSalePanel(project) {
 
   setText("[data-sale-status]", status);
   setText("[data-sale-vault]", hasSale ? shortAddress(project.saleVault) : "--");
-  setText("[data-sale-price]", hasSale ? `${formatToken(sale.mintPrice)} ETH/BNB / 枚` : "--");
+  setText("[data-sale-price]", hasSale ? `${formatToken(sale.mintPrice)} ${NATIVE_SYMBOL} / 枚` : "--");
   setText("[data-sale-sold]", hasSale ? `${formatToken(sale.saleSupply - sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
   setText("[data-sale-remaining]", hasSale ? `${formatToken(sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
   setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? formatToken(sale.maxMintPerWallet, project.symbol) : hasSale ? "不限" : "--");
   setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
-  setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ETH/BNB` : "--");
+  setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ${NATIVE_SYMBOL}` : "--");
   setText("[data-sale-receiver]", hasSale ? shortAddress(sale.fundsReceiver) : "--");
 
   $$("[data-sale-buy-form]").forEach((form) => {
@@ -884,6 +908,7 @@ function renderAdminTools(project) {
       return;
     }
 
+    const evolution = project.evolutionConfig || normalizeEvolutionConfig(null);
     const reward = project.rewardConfig || normalizeRewardConfig(null);
     const dex = project.dexConfig || normalizeDexConfig(null);
     const ownerReady = isLaunchpadOwner();
@@ -892,6 +917,20 @@ function renderAdminTools(project) {
     const dexStatus = dex.enabled ? "已启用" : "未启用";
 
     container.innerHTML = `
+      <section class="admin-panel">
+        <div class="admin-head">
+          <div>
+            <span>进化机制</span>
+            <strong>${ownerBadge}</strong>
+          </div>
+          <small>灵气值达到进化阈值后，触发进化会按这里的比例销毁进化池，并释放奖励池给持币分红。</small>
+        </div>
+        <form class="admin-form" data-evolution-config-form>
+          <label><span>进化池销毁 %</span><input name="burnBps" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(evolution.burnBps)}" ${disabled} /></label>
+          <label><span>奖励池分红释放 %</span><input name="rewardDividendBps" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(evolution.rewardDividendBps)}" ${disabled} /></label>
+          <button class="outline-button" type="submit" ${disabled}><i data-lucide="flame"></i><span>保存进化机制</span></button>
+        </form>
+      </section>
       <section class="admin-panel">
         <div class="admin-head">
           <div>
@@ -1546,6 +1585,12 @@ async function buySale(event) {
     showToast("当前神兽未开启认购。", "error");
     return;
   }
+  const status = saleStatusLabel(project);
+  if (status !== "认购中") {
+    const message = status === "可开盘" ? "认购已结束，等待项目方开盘。" : `当前状态为“${status}”，不能继续认购。`;
+    showToast(message, "error");
+    return;
+  }
 
   const data = new FormData(event.currentTarget);
   const tokenAmount = parseTokenAmount(data.get("tokenAmount"));
@@ -1553,10 +1598,30 @@ async function buySale(event) {
     showToast("请输入认购数量。", "error");
     return;
   }
+  if (tokenAmount > project.sale.remainingSaleSupply) {
+    showToast("认购数量超过剩余数量，请减少数量后再试。", "error");
+    return;
+  }
 
   try {
     const cost = (tokenAmount * project.sale.mintPrice) / TOKEN_UNIT;
+    if (cost === ZERO) {
+      showToast("认购金额太小，请增加认购数量。", "error");
+      return;
+    }
     const saleVault = selectedSaleVault(state.signer);
+    if (project.sale.maxMintPerWallet > ZERO) {
+      const purchased = await saleVault.purchased(state.account).catch(() => ZERO);
+      if (purchased + tokenAmount > project.sale.maxMintPerWallet) {
+        showToast("认购数量超过当前钱包上限，请减少数量后再试。", "error");
+        return;
+      }
+    }
+    const balance = await state.provider.getBalance(state.account).catch(() => ZERO);
+    if (balance < cost) {
+      showToast(`钱包 ${NATIVE_SYMBOL} 余额不足，无法支付本次认购。`, "error");
+      return;
+    }
     showToast("认购交易已发起，请在钱包确认。");
     const tx = await saleVault.buy(tokenAmount, { value: cost });
     await tx.wait();
@@ -1668,6 +1733,28 @@ async function withdrawCancelledTokens() {
   } catch (error) {
     console.error(error);
     showToast(`取回失败：${shortError(error)}`, "error");
+  }
+}
+
+async function saveEvolutionConfig(event) {
+  event.preventDefault();
+  const project = requireSelectedProject();
+  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+
+  const data = new FormData(event.currentTarget);
+  try {
+    const burnBps = parsePercentBps(data.get("burnBps"), "进化池销毁比例");
+    const rewardDividendBps = parsePercentBps(data.get("rewardDividendBps"), "奖励池分红释放比例");
+
+    const launchpadWithSigner = state.launchpad.connect(state.signer);
+    showToast("进化机制设置交易已发起，请在钱包确认。");
+    const tx = await launchpadWithSigner.setEvolutionPayoutConfig(project.token, burnBps, rewardDividendBps);
+    await tx.wait();
+    showToast("进化机制已更新");
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`进化机制设置失败：${shortError(error)}`, "error");
   }
 }
 
@@ -1836,6 +1923,9 @@ async function ensureWritable() {
 
 function shortError(error) {
   const message = error?.shortMessage || error?.reason || error?.message?.split("\n")[0] || "";
+  if (message.includes("missing revert data") || message.includes("execution reverted")) {
+    return "交易条件不满足，请检查数量、剩余份额、钱包上限和钱包余额";
+  }
   if (error?.code === "BAD_DATA" || message.includes("could not decode result data")) {
     return "当前地址不是神兽发射台合约，请重新部署或填写正确地址";
   }
@@ -1958,6 +2048,9 @@ function bindEvents() {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
 
+    if (form.matches("[data-evolution-config-form]")) {
+      await saveEvolutionConfig(event);
+    }
     if (form.matches("[data-reward-config-form]")) {
       await saveRewardConfig(event);
     }
