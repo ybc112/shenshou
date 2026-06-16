@@ -10,5 +10,6 @@ yarn-debug.log*
 yarn-error.log*
 web/server.*.log
 web/deployments/*.json
+!web/deployments/latest.json
 output/playwright/
 output/hardhat/

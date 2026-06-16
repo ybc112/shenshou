@@ -4,8 +4,10 @@ const path = require("node:path");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const treasury = process.env.TREASURY || deployer.address;
-  const creationFee = process.env.CREATION_FEE_WEI || "0";
+  const treasury = process.env.TREASURY || process.env.FEE_RECIPIENT || deployer.address;
+  const creationFee = process.env.CREATION_FEE_WEI || (
+    process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : "0"
+  );
 
   const TokenDeployer = await ethers.getContractFactory("RuyiBeastTokenDeployer");
   const tokenDeployer = await TokenDeployer.deploy();

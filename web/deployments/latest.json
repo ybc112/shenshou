@@ -1,0 +1,16 @@
+{
+  "chainId": 56,
+  "network": "bsc",
+  "tokenDeployerAddress": "0x144648A3392dA2055eb19891e78A070e767357f7",
+  "saleVaultDeployerAddress": "0x7Bce38B9Af4822A04E4D3224067a99B4585b91Ff",
+  "launchpadAddress": "0xC3661dEBBcce148765b7C242730344f8e09269a5",
+  "vaultAddress": "0xb7A0563Cd08bdd2fb9783A7A11F1daab4ea74186",
+  "platformTreasury": "0xE3361a68e42Cea9aebA8D1148721D435ACB5c88b",
+  "creationFee": "5000000000000000",
+  "transactions": {
+    "tokenDeployer": "0xfc7f15cad73ee8400793f713fcd2adcbb20bb6e63036a57da8dbec3a3fe64deb",
+    "saleVaultDeployer": "0x90c128faa8b52da1eedfe46d10521f1741456401978e28d81a5f5c46b8c350dc",
+    "launchpad": "0x36eef3e50e9ae9e12b0825caea6ad4006de8b800d04ee76ddeca2935f48c05f9"
+  },
+  "deployedAt": "2026-06-16T03:05:57.034Z"
+}
