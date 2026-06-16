@@ -26,6 +26,7 @@
           <button class="nav-item" type="button" data-nav="#create"><span class="nav-icon"><i data-lucide="sparkles"></i></span><span>创建神兽</span></button>
           <button class="nav-item" type="button" data-nav="#rank"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span><span>进化榜</span></button>
           <button class="nav-item" type="button" data-nav="#reward"><span class="nav-icon"><i data-lucide="gift"></i></span><span>奖励中心</span></button>
+          <button class="nav-item" type="button" data-nav="#platform"><span class="nav-icon"><i data-lucide="coins"></i></span><span>平台币</span></button>
           <button class="nav-item" type="button" data-nav="#data"><span class="nav-icon"><i data-lucide="pie-chart"></i></span><span>数据中心</span></button>
           <button class="nav-item" type="button" data-nav="#help"><span class="nav-icon"><i data-lucide="message-circle-question"></i></span><span>帮助中心</span></button>
         </nav>
@@ -57,6 +58,7 @@
             <a href="#create">创建神兽</a>
             <a href="#rank">进化榜</a>
             <a href="#reward">奖励中心</a>
+            <a href="#platform">平台币</a>
             <a href="#data">数据中心</a>
             <a href="#help">帮助中心</a>
           </nav>
@@ -153,6 +155,7 @@
                 </div>
                 <div class="sale-grid">
                   <div><span>认购合约</span><strong data-sale-vault>--</strong></div>
+                  <div><span>已认购</span><strong data-sale-sold>--</strong></div>
                   <div><span>剩余数量</span><strong data-sale-remaining>--</strong></div>
                   <div><span>认购单价</span><strong data-sale-price>--</strong></div>
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
@@ -174,6 +177,20 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
+              <section class="mint-panel" data-official-mint-panel>
+                <div class="mint-head">
+                  <div>
+                    <span>官方 Mint</span>
+                    <strong>预留接入位</strong>
+                  </div>
+                  <small>等你的神兽 Mint 合约部署好后，把地址和 ABI 接到这里，用户就能直接来 mint。</small>
+                </div>
+                <form class="mint-form" data-official-mint-form>
+                  <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
+                  <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
+                  <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
+                </form>
+              </section>
               <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
@@ -443,6 +460,7 @@
                 </div>
                 <div class="sale-grid">
                   <div><span>认购合约</span><strong data-sale-vault>--</strong></div>
+                  <div><span>已认购</span><strong data-sale-sold>--</strong></div>
                   <div><span>剩余数量</span><strong data-sale-remaining>--</strong></div>
                   <div><span>认购单价</span><strong data-sale-price>--</strong></div>
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
@@ -464,6 +482,20 @@
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
               </div>
+              <section class="mint-panel" data-official-mint-panel>
+                <div class="mint-head">
+                  <div>
+                    <span>官方 Mint</span>
+                    <strong>预留接入位</strong>
+                  </div>
+                  <small>等你的神兽 Mint 合约部署好后，把地址和 ABI 接到这里，用户就能直接来 mint。</small>
+                </div>
+                <form class="mint-form" data-official-mint-form>
+                  <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
+                  <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
+                  <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
+                </form>
+              </section>
               <div class="admin-tools" data-admin-tools></div>
               <div class="button-row">
                 <button class="gold-button" type="button" data-action="trigger-evolution"><i data-lucide="sparkles"></i><span>触发进化</span></button>
@@ -561,6 +593,37 @@
           </section>
         </section>
 
+        <section class="page-view page-panel" data-page="platform">
+          <div class="page-header">
+            <div>
+              <span>PLATFORM TOKEN</span>
+              <h1>平台币</h1>
+              <p>这里先给平台币留入口，后面合约部署好后接入余额、领取、兑换和池子数据。</p>
+            </div>
+            <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
+          </div>
+          <div class="platform-grid">
+            <section class="platform-token-card">
+              <div class="platform-token-mark"><i data-lucide="coins"></i></div>
+              <div>
+                <span>平台生态币</span>
+                <h2>Ruyi Platform Token</h2>
+                <p>合约地址、符号、精度和总量待接入。上线后这里展示平台币状态，并作为用户进入平台币 mint/领取入口。</p>
+              </div>
+            </section>
+            <section class="platform-token-card compact">
+              <span>我的平台币</span>
+              <strong data-platform-token-balance>待接入</strong>
+              <button class="outline-button full" type="button" data-action="platform-token-placeholder"><i data-lucide="plug-zap"></i><span>等待合约接入</span></button>
+            </section>
+            <section class="platform-token-card compact">
+              <span>平台币合约</span>
+              <strong data-platform-token-contract>--</strong>
+              <button class="gold-button full" type="button" data-action="platform-token-placeholder"><i data-lucide="settings-2"></i><span>配置入口</span></button>
+            </section>
+          </div>
+        </section>
+
         <section class="page-view page-panel" data-page="help">
           <div class="page-header">
             <div>
@@ -604,6 +667,7 @@
       <button class="active" type="button" data-nav="#home"><i data-lucide="home"></i><span>首页</span></button>
       <button type="button" data-nav="#create"><i data-lucide="sparkles"></i><span>创建</span></button>
       <button type="button" data-nav="#rank"><i data-lucide="bar-chart-3"></i><span>兽巢</span></button>
+      <button type="button" data-nav="#platform"><i data-lucide="coins"></i><span>平台</span></button>
       <button type="button" data-nav="#reward"><i data-lucide="gift"></i><span>奖励</span></button>
     </div>
 

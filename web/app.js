@@ -69,7 +69,7 @@ const SALE_VAULT_ABI = [
 const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
-const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"];
+const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "data", "help"];
 const ZERO = 0n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -849,6 +849,7 @@ function renderSalePanel(project) {
   setText("[data-sale-status]", status);
   setText("[data-sale-vault]", hasSale ? shortAddress(project.saleVault) : "--");
   setText("[data-sale-price]", hasSale ? `${formatToken(sale.mintPrice)} ETH/BNB / 枚` : "--");
+  setText("[data-sale-sold]", hasSale ? `${formatToken(sale.saleSupply - sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
   setText("[data-sale-remaining]", hasSale ? `${formatToken(sale.remainingSaleSupply, project.symbol)} / ${formatToken(sale.saleSupply, project.symbol)}` : "--");
   setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? formatToken(sale.maxMintPerWallet, project.symbol) : hasSale ? "不限" : "--");
   setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
@@ -1860,6 +1861,14 @@ function copyTokenAddress() {
   showToast("Token 地址已复制");
 }
 
+function showOfficialMintPlaceholder() {
+  showToast("官方 Mint 板块已预留，等 Mint 合约地址和 ABI 接入后即可开放。");
+}
+
+function showPlatformTokenPlaceholder() {
+  showToast("平台币入口已预留，等平台币合约部署后接入余额和操作。");
+}
+
 function pageFromHash(hash = window.location.hash) {
   const page = String(hash || "#home").replace("#", "");
   return PAGE_NAMES.includes(page) ? page : "home";
@@ -1919,6 +1928,13 @@ function bindEvents() {
 
   $$("[data-sale-buy-form]").forEach((form) => {
     form.addEventListener("submit", buySale);
+  });
+
+  $$("[data-official-mint-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      showOfficialMintPlaceholder();
+    });
   });
 
   $$("[data-sale-owner-form]").forEach((form) => {
@@ -1994,6 +2010,7 @@ function bindEvents() {
     if (action === "claim-refund") await claimRefund();
     if (action === "cancel-sale") await cancelSale();
     if (action === "withdraw-cancelled-tokens") await withdrawCancelledTokens();
+    if (action === "platform-token-placeholder") showPlatformTokenPlaceholder();
     if (action === "select-first" && state.projects[0]) {
       state.selectedProjectId = state.projects[0].id;
       renderAllViews();
