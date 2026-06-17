@@ -99,6 +99,15 @@ const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
 const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"];
+const NAV_LABELS = {
+  home: "\u9996\u9875",
+  beasts: "\u795e\u517d\u5927\u5385",
+  create: "\u521b\u5efa\u795e\u517d",
+  rank: "\u8fdb\u5316\u699c",
+  reward: "\u5956\u52b1\u4e2d\u5fc3",
+  data: "\u6570\u636e\u4e2d\u5fc3",
+  help: "\u5e2e\u52a9\u4e2d\u5fc3"
+};
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
@@ -3039,6 +3048,16 @@ function updateNavigationActive(page) {
   $$(".top-tabs a[href^='#']").forEach((link) => {
     link.classList.toggle("active", pageFromHash(link.getAttribute("href")) === page);
   });
+
+  $$("[data-menu-current]").forEach((item) => {
+    item.textContent = NAV_LABELS[page] || NAV_LABELS.home;
+  });
+}
+
+function closePageMenu() {
+  $$("[data-page-menu]").forEach((menu) => {
+    menu.open = false;
+  });
 }
 
 function showPage(pageName, options = {}) {
@@ -3140,6 +3159,11 @@ function bindEvents() {
   });
 
   document.addEventListener("click", async (event) => {
+    const openPageMenu = $("[data-page-menu][open]");
+    if (openPageMenu && !event.target.closest("[data-page-menu]")) {
+      openPageMenu.open = false;
+    }
+
     const enterTarget = event.target.closest("[data-enter-project]");
     if (enterTarget) {
       state.selectedProjectId = Number(enterTarget.dataset.enterProject);
@@ -3187,6 +3211,7 @@ function bindEvents() {
     const nav = button.dataset.nav;
     if (nav) {
       showPage(pageFromHash(nav));
+      closePageMenu();
       return;
     }
 
@@ -3239,6 +3264,9 @@ function bindEvents() {
 
   window.addEventListener("hashchange", () => showPage(pageFromHash(), { updateHash: false }));
   window.addEventListener("popstate", () => showPage(pageFromHash(), { updateHash: false }));
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closePageMenu();
+  });
   window.ethereum?.on?.("accountsChanged", () => window.location.reload());
   window.ethereum?.on?.("chainChanged", () => window.location.reload());
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-submit-click" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-menu-select" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -50,15 +50,27 @@
 
       <main class="workspace" id="home">
         <header class="topbar">
-          <nav class="top-tabs" aria-label="顶部导航">
-            <a class="active" href="#home">首页</a>
-            <a href="#beasts">神兽大厅</a>
-            <a href="#create">创建神兽</a>
-            <a href="#rank">进化榜</a>
-            <a href="#reward">奖励中心</a>
-            <a href="#data">数据中心</a>
-            <a href="#help">帮助中心</a>
-          </nav>
+          <div class="top-menu-wrap">
+            <details class="page-menu" data-page-menu>
+              <summary aria-label="打开页面菜单">
+                <span class="menu-summary-icon"><i data-lucide="menu"></i></span>
+                <span class="menu-summary-text">
+                  <small>菜单</small>
+                  <strong data-menu-current>首页</strong>
+                </span>
+                <i class="menu-chevron" data-lucide="chevron-down"></i>
+              </summary>
+              <div class="page-menu-panel" role="menu">
+                <button class="active" type="button" data-nav="#home" role="menuitem"><i data-lucide="home"></i><span>首页</span></button>
+                <button type="button" data-nav="#beasts" role="menuitem"><i data-lucide="paw-print"></i><span>神兽大厅</span></button>
+                <button type="button" data-nav="#create" role="menuitem"><i data-lucide="sparkles"></i><span>创建神兽</span></button>
+                <button type="button" data-nav="#rank" role="menuitem"><i data-lucide="bar-chart-3"></i><span>进化榜</span></button>
+                <button type="button" data-nav="#reward" role="menuitem"><i data-lucide="gift"></i><span>奖励中心</span></button>
+                <button type="button" data-nav="#data" role="menuitem"><i data-lucide="pie-chart"></i><span>数据中心</span></button>
+                <button type="button" data-nav="#help" role="menuitem"><i data-lucide="message-circle-question"></i><span>帮助中心</span></button>
+              </div>
+            </details>
+          </div>
           <div class="top-actions">
             <button class="icon-button" type="button" data-action="refresh" aria-label="刷新链上数据"><i data-lucide="refresh-cw"></i></button>
             <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
@@ -695,15 +707,8 @@
       </main>
     </div>
 
-    <div class="mobile-dock" aria-label="移动端导航">
-      <button class="active" type="button" data-nav="#home"><i data-lucide="home"></i><span>首页</span></button>
-      <button type="button" data-nav="#create"><i data-lucide="sparkles"></i><span>创建</span></button>
-      <button type="button" data-nav="#rank"><i data-lucide="bar-chart-3"></i><span>兽巢</span></button>
-      <button type="button" data-nav="#reward"><i data-lucide="gift"></i><span>奖励</span></button>
-    </div>
-
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-submit-click"></script>
+    <script src="./app.js?v=20260617-menu-select"></script>
   </body>
 </html>
