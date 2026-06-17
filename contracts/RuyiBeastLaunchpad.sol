@@ -55,6 +55,7 @@ interface IRuyiLaunchToken is IERC20 {
     function setTxLimitExempt(address account, bool exempt) external;
     function setExcludedFromDividends(address account, bool excluded) external;
     function setLaunchSaleVault(address saleVault) external;
+    function setAirdropNumbs(uint256 count) external;
 
     function transferOwnership(address newOwner) external;
 }
@@ -398,6 +399,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     function openRewardRound(address token) external returns (uint256 round) {
         _requireProjectOperator(token);
         return vault.openRewardRound(token);
+    }
+
+    function setAirdropNumbs(address token, uint256 count) external {
+        _requireProjectOperator(token);
+        IRuyiLaunchToken(token).setAirdropNumbs(count);
     }
 
     function assignLuckyNumber(address token) external nonReentrant returns (uint16 number) {

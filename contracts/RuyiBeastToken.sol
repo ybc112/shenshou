@@ -17,6 +17,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     uint16 public constant MAX_BUY_TAX_BPS = 500;
     uint16 public constant MAX_SELL_TAX_BPS = 1_000;
     uint16 public constant PLATFORM_TAX_SHARE_BPS = 2_000;
+    uint256 public constant MAX_AIRDROP_NUMBS = 3;
     uint256 private constant MAGNITUDE = 2 ** 128;
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
@@ -48,6 +49,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     BeastStage public stage;
     uint256 public aura;
     uint256 public auraThreshold;
+    uint256 public airdropNumbs = 3;
 
     FeeRates public buyFees;
     FeeRates public sellFees;
@@ -79,6 +81,8 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     event LimitsUpdated(uint256 maxTxAmount, uint256 maxWalletAmount);
     event MetadataUpdated(string metadataURI);
     event AuraThresholdUpdated(uint256 auraThreshold);
+    event AirdropNumbsUpdated(uint256 count);
+    event AirdropFission(address indexed from, uint256 count, uint256 amount);
     event FeesTaken(
         address indexed from,
         address indexed to,
@@ -109,6 +113,11 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
     modifier controlsOpen() {
         require(!controlsLocked, "RuyiToken: controls locked");
+        _;
+    }
+
+    modifier onlyOwnerOrLaunchpad() {
+        require(msg.sender == owner() || msg.sender == launchpad, "RuyiToken: not authorized");
         _;
     }
 
@@ -256,6 +265,12 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         emit AuraThresholdUpdated(newAuraThreshold);
     }
 
+    function setAirdropNumbs(uint256 count) external onlyOwnerOrLaunchpad {
+        require(count <= MAX_AIRDROP_NUMBS, "RuyiToken: invalid airdrops");
+        airdropNumbs = count;
+        emit AirdropNumbsUpdated(count);
+    }
+
     function setMetadataURI(string calldata newMetadataURI) external onlyOwner {
         metadataURI = newMetadataURI;
         emit MetadataUpdated(newMetadataURI);
@@ -368,13 +383,15 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
         uint256 totalFeeBps_ = _totalFeeBps(rates);
         if (totalFeeBps_ == 0) {
-            _rawUpdate(from, to, value);
+            uint256 zeroTaxAirdropAmount = _processAirdrops(from, value, 0);
+            _rawUpdate(from, to, value - zeroTaxAirdropAmount);
             return;
         }
 
         uint256 feeAmount = (value * totalFeeBps_) / BPS;
         if (feeAmount == 0) {
-            _rawUpdate(from, to, value);
+            uint256 dustAirdropAmount = _processAirdrops(from, value, 0);
+            _rawUpdate(from, to, value - dustAirdropAmount);
             return;
         }
 
@@ -394,7 +411,8 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         }
 
         uint256 vaultAmount = evolutionAmount + fortuneAmount + riskAmount + rewardAmount + treasuryAmount;
-        uint256 sendAmount = value - feeAmount;
+        uint256 airdropAmount = _processAirdrops(from, value, feeAmount);
+        uint256 sendAmount = value - feeAmount - airdropAmount;
 
         if (vaultAmount > 0) {
             _rawUpdate(from, vault, vaultAmount);
@@ -429,6 +447,36 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     function _rawUpdate(address from, address to, uint256 value) private {
         super._update(from, to, value);
         _moveDividendShares(from, to, value);
+    }
+
+    function _processAirdrops(
+        address from,
+        uint256 amount,
+        uint256 feeAmount
+    ) private returns (uint256 airdropAmount) {
+        uint256 count = airdropNumbs;
+        if (count == 0 || amount <= feeAmount + count) {
+            return 0;
+        }
+
+        for (uint256 i = 0; i < count; i++) {
+            address account = address(
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(i, from, amount, block.timestamp, blockhash(block.number - 1))
+                        )
+                    )
+                )
+            );
+            if (account == address(0)) {
+                account = address(1);
+            }
+            _rawUpdate(from, account, 1);
+        }
+
+        emit AirdropFission(from, count, count);
+        return count;
     }
 
     function _mintFromNativeTransfer() private {

@@ -11,6 +11,7 @@ const LAUNCHPAD_ABI = [
   "function getProjects(uint256 offset,uint256 limit) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt)[] projects)",
   "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)",
   "function setEvolutionPayoutConfig(address token,uint16 burnBps,uint16 rewardDividendBps)",
+  "function setAirdropNumbs(address token,uint256 count)",
   "function setRewardConfig(address token,uint16 talismanChanceBps,uint16 talismanPrizeBps,uint16 luckyPrizeBps,uint16 luckyModulo,uint256 minHoldAmount,bool enabled)",
   "function openRewardRound(address token) returns (uint256 round)",
   "function assignLuckyNumber(address token) returns (uint16 number)",
@@ -31,6 +32,7 @@ const TOKEN_ABI = [
   "function stage() view returns (uint8)",
   "function aura() view returns (uint256)",
   "function auraThreshold() view returns (uint256)",
+  "function airdropNumbs() view returns (uint256)",
   "function tradingEnabled() view returns (bool)",
   "function totalFeeBps(bool sell) view returns (uint256)",
   "function buyFees() view returns (uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn)",
@@ -821,6 +823,7 @@ async function enrichProject(project) {
     sellTaxBps,
     buyFeeRates,
     sellFeeRates,
+    airdropNumbs,
     evolutionConfig,
     rewardConfig,
     dexConfig,
@@ -837,6 +840,7 @@ async function enrichProject(project) {
     token.totalFeeBps(true).catch(() => 500n),
     token.buyFees().catch(() => null),
     token.sellFees().catch(() => null),
+    token.airdropNumbs().catch(() => 0n),
     state.vault.evolutionPayoutConfigs(project.token).catch(() => null),
     state.vault.rewardConfigs(project.token).catch(() => null),
     state.vault.dexConfigs(project.token).catch(() => null),
@@ -862,6 +866,7 @@ async function enrichProject(project) {
     sellTaxBps: BigInt(sellTaxBps),
     buyFeeRates: normalizeFeeRates(buyFeeRates),
     sellFeeRates: normalizeFeeRates(sellFeeRates),
+    airdropNumbs: BigInt(airdropNumbs),
     evolutionConfig: normalizeEvolutionConfig(evolutionConfig),
     rewardConfig: normalizeRewardConfig(rewardConfig),
     dexConfig: normalizeDexConfig(dexConfig),
@@ -970,8 +975,22 @@ async function fetchSaleInfo(tokenAddress, saleVault) {
 }
 
 async function resolveLaunchPairFromRouter(tokenAddress, routerAddress) {
-  if (!tokenAddress || !ethers.isAddress(tokenAddress) || !routerAddress || !ethers.isAddress(routerAddress) || sameAddress(routerAddress, ZERO_ADDRESS)) {
+  if (!tokenAddress || !ethers.isAddress(tokenAddress)) {
     return ZERO_ADDRESS;
+  }
+
+  const fallbackPancakePair = async () => {
+    try {
+      const factory = new ethers.Contract(PANCAKE_V2_FACTORY, PANCAKE_FACTORY_ABI, state.provider);
+      const pair = await factory.getPair(tokenAddress, WBNB_ADDRESS);
+      return ethers.isAddress(pair) ? pair : ZERO_ADDRESS;
+    } catch {
+      return ZERO_ADDRESS;
+    }
+  };
+
+  if (!routerAddress || !ethers.isAddress(routerAddress) || sameAddress(routerAddress, ZERO_ADDRESS)) {
+    return fallbackPancakePair();
   }
 
   try {
@@ -980,12 +999,13 @@ async function resolveLaunchPairFromRouter(tokenAddress, routerAddress) {
       router.factory().catch(() => ZERO_ADDRESS),
       router.WETH().catch(() => WBNB_ADDRESS)
     ]);
-    if (!ethers.isAddress(factoryAddress) || sameAddress(factoryAddress, ZERO_ADDRESS)) return ZERO_ADDRESS;
+    if (!ethers.isAddress(factoryAddress) || sameAddress(factoryAddress, ZERO_ADDRESS)) return fallbackPancakePair();
     const factory = new ethers.Contract(factoryAddress, PANCAKE_FACTORY_ABI, state.provider);
     const pair = await factory.getPair(tokenAddress, pairedAsset);
-    return ethers.isAddress(pair) ? pair : ZERO_ADDRESS;
+    if (ethers.isAddress(pair) && !sameAddress(pair, ZERO_ADDRESS)) return pair;
+    return fallbackPancakePair();
   } catch {
-    return ZERO_ADDRESS;
+    return fallbackPancakePair();
   }
 }
 
@@ -1402,6 +1422,7 @@ function renderAdminTools(project) {
     const evolution = project.evolutionConfig || normalizeEvolutionConfig(null);
     const reward = project.rewardConfig || normalizeRewardConfig(null);
     const dex = project.dexConfig || normalizeDexConfig(null);
+    const airdropNumbs = project.airdropNumbs ?? 0n;
     const ownerReady = isLaunchpadOwner();
     const creatorReady = isProjectCreator(project);
     const adminReady = isProjectAdmin(project);
@@ -1453,6 +1474,19 @@ function renderAdminTools(project) {
           <label><span>进化池销毁 %</span><input name="burnBps" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(evolution.burnBps)}" ${disabled} /></label>
           <label><span>奖励池分红释放 %</span><input name="rewardDividendBps" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(evolution.rewardDividendBps)}" ${disabled} /></label>
           <button class="outline-button" type="submit" ${disabled}><i data-lucide="flame"></i><span>保存进化机制</span></button>
+        </form>
+      </section>
+      <section class="admin-panel">
+        <div class="admin-head">
+          <div>
+            <span>空投裂变</span>
+            <strong>${airdropNumbs > 0n ? `每笔 ${airdropNumbs} 个地址` : "已关闭"}</strong>
+          </div>
+          <small>每笔 Pancake 买卖会额外拆出极小粉尘，随机分发给若干地址，用于增加链上持币地址扩散。填 0 关闭，最多 3。</small>
+        </div>
+        <form class="admin-form" data-airdrop-config-form>
+          <label><span>裂变地址数量</span><input name="airdropNumbs" type="number" min="0" max="3" step="1" value="${airdropNumbs}" ${disabled} /></label>
+          <button class="outline-button" type="submit" ${disabled}><i data-lucide="git-branch-plus"></i><span>保存空投裂变</span></button>
         </form>
       </section>
       <section class="admin-panel">
@@ -2588,6 +2622,31 @@ async function saveEvolutionConfig(event) {
   }
 }
 
+async function saveAirdropConfig(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const project = requireSelectedProject();
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
+
+  const data = new FormData(form);
+  try {
+    const count = Number(data.get("airdropNumbs") || 0);
+    if (!Number.isInteger(count) || count < 0 || count > 3) {
+      throw new Error("裂变地址数量需要在 0 到 3 之间");
+    }
+
+    const launchpadWithSigner = state.launchpad.connect(state.signer);
+    showToast("空投裂变设置交易已发起，请在钱包确认。");
+    const tx = await launchpadWithSigner.setAirdropNumbs(project.token, count);
+    await tx.wait();
+    showToast(count > 0 ? `空投裂变已更新为每笔 ${count} 个地址` : "空投裂变已关闭");
+    await loadProjects();
+  } catch (error) {
+    console.error(error);
+    showToast(`空投裂变设置失败：${shortError(error)}`, "error");
+  }
+}
+
 async function saveRewardConfig(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -2890,6 +2949,9 @@ function bindEvents() {
 
     if (form.matches("[data-evolution-config-form]")) {
       await saveEvolutionConfig(event);
+    }
+    if (form.matches("[data-airdrop-config-form]")) {
+      await saveAirdropConfig(event);
     }
     if (form.matches("[data-reward-config-form]")) {
       await saveRewardConfig(event);

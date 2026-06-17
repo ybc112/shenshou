@@ -110,7 +110,8 @@ describe("Ruyi Beast Launchpad", function () {
 
     await token.connect(pair).transfer(alice.address, ethers.parseEther("1000"));
 
-    assert.equal(await token.balanceOf(alice.address), ethers.parseEther("970"));
+    assert.equal(await token.airdropNumbs(), 3n);
+    assert.equal(await token.balanceOf(alice.address), ethers.parseEther("970") - 3n);
     assert.equal(await token.balanceOf(await vault.getAddress()), ethers.parseEther("30"));
     assert.equal(await token.PLATFORM_TAX_SHARE_BPS(), 2000n);
     assert.equal(await token.aura(), ethers.parseEther("12"));
@@ -124,7 +125,7 @@ describe("Ruyi Beast Launchpad", function () {
 
     await token.connect(alice).transfer(pair.address, ethers.parseEther("100"));
 
-    assert.equal(await token.balanceOf(pair.address), ethers.parseEther("99095"));
+    assert.equal(await token.balanceOf(pair.address), ethers.parseEther("99095") - 3n);
     assert.equal(await token.aura(), ethers.parseEther("13.6"));
 
     pools = await vault.poolBalances(tokenAddress);
@@ -237,6 +238,13 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(evolution.burnBps, 2500n);
     assert.equal(evolution.rewardDividendBps, 7500n);
 
+    assert.equal(await token.airdropNumbs(), 3n);
+    await launchpad.connect(creator).setAirdropNumbs(tokenAddress, 1);
+    assert.equal(await token.airdropNumbs(), 1n);
+    await assert.rejects(
+      launchpad.connect(creator).setAirdropNumbs(tokenAddress, 4)
+    );
+
     await launchpad.connect(creator).setRewardConfig(
       tokenAddress,
       2000,
@@ -294,6 +302,10 @@ describe("Ruyi Beast Launchpad", function () {
 
     await assert.rejects(
       launchpad.connect(alice).setEvolutionPayoutConfig(tokenAddress, 5000, 5000),
+      /not project operator/
+    );
+    await assert.rejects(
+      launchpad.connect(alice).setAirdropNumbs(tokenAddress, 0),
       /not project operator/
     );
 
