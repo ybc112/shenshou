@@ -64,6 +64,7 @@ async function main() {
   console.log("RuyiBeastVault:", await launchpad.vault());
   console.log("Platform treasury:", treasury);
   console.log("Creation fee:", creationFee);
+  console.log("Required token suffix:", (await launchpad.requiredTokenSuffix()).toString(16).padStart(4, "0"));
 
   const network = await ethers.provider.getNetwork();
   const deployment = {
@@ -74,6 +75,7 @@ async function main() {
     launchpadAddress: await launchpad.getAddress(),
     vaultAddress: await launchpad.vault(),
     platformTreasury: treasury,
+    requiredTokenSuffix: (await launchpad.requiredTokenSuffix()).toString(16).padStart(4, "0"),
     creationFee,
     deployedAt: new Date().toISOString()
   };

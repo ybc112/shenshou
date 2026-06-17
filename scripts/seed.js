@@ -60,7 +60,9 @@ async function main() {
       fundsReceiver: ethers.ZeroAddress,
       buyFees: feeRates(),
       sellFees: feeRates(),
-      customFees: false
+      customFees: false,
+      autoOpenTrading: true,
+      salt: ethers.ZeroHash
     });
     await tx.wait();
   }

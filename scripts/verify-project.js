@@ -23,7 +23,8 @@ const SALE_VAULT_ABI = [
   "function maxMintPerWallet() view returns (uint256)",
   "function whitelistMintLimit() view returns (uint256)",
   "function whitelistEnabled() view returns (bool)",
-  "function saleDeadline() view returns (uint256)"
+  "function saleDeadline() view returns (uint256)",
+  "function autoOpenTrading() view returns (bool)"
 ];
 
 async function main() {
@@ -97,7 +98,8 @@ async function main() {
       maxMintPerWallet,
       whitelistMintLimit,
       whitelistEnabled,
-      saleDeadline
+      saleDeadline,
+      autoOpenTrading
     ] = await Promise.all([
       saleVault.creator(),
       saleVault.liquidityReceiver(),
@@ -108,7 +110,8 @@ async function main() {
       saleVault.maxMintPerWallet(),
       saleVault.whitelistMintLimit(),
       saleVault.whitelistEnabled(),
-      saleVault.saleDeadline()
+      saleVault.saleDeadline(),
+      saleVault.autoOpenTrading()
     ]);
     const saleArgsPath = path.join(argsDir, "sale-vault.cjs");
     writeArgsFile(saleArgsPath, [
@@ -122,7 +125,8 @@ async function main() {
       maxMintPerWallet,
       whitelistMintLimit,
       whitelistEnabled,
-      saleDeadline
+      saleDeadline,
+      autoOpenTrading
     ]);
 
     console.log("SaleVault:", saleVaultAddress);

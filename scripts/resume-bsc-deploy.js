@@ -2,8 +2,6 @@ const { ethers } = require("ethers");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const TOKEN_DEPLOYER_ADDRESS =
-  process.env.TOKEN_DEPLOYER_ADDRESS || "0x144648A3392dA2055eb19891e78A070e767357f7";
 const DEFAULT_PLATFORM_TREASURY = "0xdE24f90b7802E32982E1af679449bA7FD6c3501D";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -114,18 +112,21 @@ async function main() {
     throw new Error(`Expected BSC mainnet chainId 56, got ${chainId}`);
   }
 
-  const tokenDeployerAddress = ethers.getAddress(TOKEN_DEPLOYER_ADDRESS);
-  const tokenDeployerCode = await provider.getCode(tokenDeployerAddress);
-  if (tokenDeployerCode === "0x") {
-    throw new Error(`Token deployer has no code: ${tokenDeployerAddress}`);
-  }
-
   const treasury = process.env.TREASURY || DEFAULT_PLATFORM_TREASURY;
   const creationFee =
     process.env.CREATION_FEE_WEI ||
     (process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : "0");
 
   let nonce = await provider.getTransactionCount(wallet.address, "pending");
+
+  const tokenDeployerDeploy = await sendCreateTx({
+    provider,
+    wallet,
+    chainId,
+    nonce,
+    contractArtifact: deployerArtifact("RuyiBeastTokenDeployer")
+  });
+  nonce += 1;
 
   const saleVaultDeployerDeploy = await sendCreateTx({
     provider,
@@ -142,24 +143,26 @@ async function main() {
     chainId,
     nonce,
     contractArtifact: artifact("RuyiBeastLaunchpad"),
-    args: [treasury, creationFee, tokenDeployerAddress, saleVaultDeployerDeploy.address]
+    args: [treasury, creationFee, tokenDeployerDeploy.address, saleVaultDeployerDeploy.address]
   });
 
   const launchpadArtifact = artifact("RuyiBeastLaunchpad");
   const launchpad = new ethers.Contract(launchpadDeploy.address, launchpadArtifact.abi, provider);
   const vaultAddress = await launchpad.vault();
+  const requiredTokenSuffix = Number(await launchpad.requiredTokenSuffix()).toString(16).padStart(4, "0");
 
   const deployment = {
     chainId,
     network: "bsc",
-    tokenDeployerAddress,
+    tokenDeployerAddress: tokenDeployerDeploy.address,
     saleVaultDeployerAddress: saleVaultDeployerDeploy.address,
     launchpadAddress: launchpadDeploy.address,
     vaultAddress,
     platformTreasury: treasury,
+    requiredTokenSuffix,
     creationFee,
     transactions: {
-      tokenDeployer: process.env.TOKEN_DEPLOYER_TX_HASH || "0xfc7f15cad73ee8400793f713fcd2adcbb20bb6e63036a57da8dbec3a3fe64deb",
+      tokenDeployer: tokenDeployerDeploy.txHash,
       saleVaultDeployer: saleVaultDeployerDeploy.txHash,
       launchpad: launchpadDeploy.txHash
     },
@@ -177,6 +180,7 @@ async function main() {
   console.log(`RuyiBeastSaleVaultDeployer: ${deployment.saleVaultDeployerAddress}`);
   console.log(`RuyiBeastLaunchpad: ${deployment.launchpadAddress}`);
   console.log(`RuyiBeastVault: ${deployment.vaultAddress}`);
+  console.log(`Required token suffix: ${deployment.requiredTokenSuffix}`);
 }
 
 main().catch((error) => {

@@ -4,26 +4,46 @@ import { createServer } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { Contract, JsonRpcProvider, getAddress, isAddress } from "ethers";
+import { fileURLToPath } from "node:url";
+import {
+  Contract,
+  ContractFactory,
+  JsonRpcProvider,
+  getAddress,
+  getCreate2Address,
+  hexlify,
+  isAddress,
+  keccak256,
+  randomBytes,
+  solidityPackedKeccak256
+} from "ethers";
 
 dotenv.config({ quiet: true });
 
 const port = Number(process.env.PORT || 8787);
-const rootDir = process.cwd();
-const assetDir = path.resolve(process.env.ASSET_DIR || path.join(process.cwd(), "work", "assets"));
-const webDir = path.resolve(process.env.WEB_DIR || path.join(process.cwd(), "web"));
+const serverDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(serverDir, "..");
+const assetDir = path.resolve(process.env.ASSET_DIR || path.join(rootDir, "work", "assets"));
+const webDir = path.resolve(process.env.WEB_DIR || path.join(rootDir, "web"));
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 const LAUNCHPAD_ABI = [
   "function projectCount() view returns (uint256)",
+  "function vault() view returns (address)",
+  "function tokenDeployer() view returns (address)",
+  "function requiredTokenSuffix() view returns (uint16)",
   "function isLaunchpadToken(address token) view returns (bool)",
   "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)"
 ];
+const tokenArtifact = readJson(path.join(rootDir, "artifacts", "contracts", "RuyiBeastToken.sol", "RuyiBeastToken.json"), null);
 const deployment = readJson(path.join(webDir, "deployments", "latest.json"), {});
 const chainId = Number(process.env.RUYI_CHAIN_ID || deployment.chainId || 56);
 const rpcUrl = process.env.BSC_RPC_URL || process.env.RUYI_RPC_URL || "";
 const launchpadAddress = normalizeOptionalAddress(process.env.LAUNCHPAD_ADDRESS || deployment.launchpadAddress || "");
 const provider = rpcUrl ? new JsonRpcProvider(rpcUrl, chainId) : null;
 const launchpad = provider && launchpadAddress ? new Contract(launchpadAddress, LAUNCHPAD_ABI, provider) : null;
+const DEFAULT_SUPPLY = 1_000_000_000n * 1_000_000_000_000_000_000n;
+const defaultVanitySuffix = String(process.env.RUYI_VANITY_SUFFIX || "dddd").trim().replace(/^0x/i, "").toLowerCase();
+const vanityMaxIterations = Number(process.env.VANITY_MAX_ITERATIONS || 500000);
 const autoVerify = process.env.AUTO_VERIFY_PROJECTS !== "false";
 const verifyPollMs = Number(process.env.VERIFY_POLL_MS || 30000);
 const verifyBackfillCount = Number(process.env.VERIFY_BACKFILL_COUNT || 12);
@@ -53,6 +73,8 @@ const server = createServer(async (request, response) => {
       launchpad: launchpadAddress || "",
       autoVerify,
       verifierReady: Boolean(launchpad && process.env.BSCSCAN_API_KEY),
+      vanitySuffix: defaultVanitySuffix,
+      vanityReady: Boolean(launchpad && tokenArtifact),
       queued: [...jobs.values()].filter((job) => job.status === "queued").length,
       running: [...jobs.values()].filter((job) => job.status === "running").length
     });
@@ -79,6 +101,17 @@ const server = createServer(async (request, response) => {
       const body = await readBody(request);
       const asset = await saveDataUrlAsset(body.dataUrl, request);
       sendJson(response, 201, { ok: true, ...asset });
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/vanity-salt") {
+    try {
+      const body = await readBody(request);
+      const result = await findVanitySalt(body);
+      sendJson(response, 200, result);
     } catch (error) {
       sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }
@@ -227,6 +260,105 @@ function runVerify(token) {
       reject(new Error(logs.join("") || `verify exited with code ${code}`));
     });
   });
+}
+
+async function findVanitySalt(body) {
+  if (!launchpad || !provider || !launchpadAddress) {
+    throw new Error("Launchpad vanity service is not configured.");
+  }
+  if (!tokenArtifact?.abi || !tokenArtifact?.bytecode) {
+    throw new Error("Token artifact is missing. Run npm run compile on the backend server.");
+  }
+
+  const requestedSuffix = String(body.suffix || defaultVanitySuffix || "dddd").trim().replace(/^0x/i, "").toLowerCase();
+  const requiredSuffix = await readRequiredTokenSuffix();
+  const suffix = requiredSuffix || requestedSuffix;
+  if (!/^[0-9a-f]{1,4}$/.test(suffix)) {
+    throw new Error("suffix must be 1-4 hex characters.");
+  }
+  if (requiredSuffix && requestedSuffix.padStart(4, "0") !== requiredSuffix) {
+    throw new Error(`Launchpad requires token suffix ${requiredSuffix}.`);
+  }
+
+  const creator = normalizeAddress(body.creator);
+  const params = normalizeCreateParams(body.params || {});
+  const maxIterations = Math.min(Math.max(Number(body.maxIterations || vanityMaxIterations), 1), 2_000_000);
+  const [vaultAddress, tokenDeployer, projectId] = await Promise.all([
+    launchpad.vault(),
+    launchpad.tokenDeployer(),
+    launchpad.projectCount()
+  ]);
+
+  const initialSupply = params.initialSupply > 0n ? params.initialSupply : DEFAULT_SUPPLY;
+  const auraThreshold = params.auraThreshold > 0n ? params.auraThreshold : initialSupply / 1000n;
+  const tokenFactory = new ContractFactory(tokenArtifact.abi, tokenArtifact.bytecode);
+  const deployTx = await tokenFactory.getDeployTransaction(
+    params.tokenName,
+    params.tokenSymbol,
+    initialSupply,
+    launchpadAddress,
+    getAddress(vaultAddress),
+    launchpadAddress,
+    projectId,
+    params.beastName,
+    params.metadataURI,
+    auraThreshold
+  );
+  const initCodeHash = keccak256(deployTx.data);
+  const startedAt = Date.now();
+
+  for (let attempts = 1; attempts <= maxIterations; attempts += 1) {
+    const salt = hexlify(randomBytes(32));
+    const tokenSalt = solidityPackedKeccak256(
+      ["address", "bytes32", "string", "string", "uint256"],
+      [creator, salt, params.tokenName, params.tokenSymbol, chainId]
+    );
+    const tokenAddress = getCreate2Address(getAddress(tokenDeployer), tokenSalt, initCodeHash);
+    if (tokenAddress.toLowerCase().endsWith(suffix)) {
+      return {
+        ok: true,
+        suffix,
+        salt,
+        tokenSalt,
+        tokenAddress,
+        launchpad: launchpadAddress,
+        tokenDeployer: getAddress(tokenDeployer),
+        projectId: projectId.toString(),
+        chainId,
+        attempts,
+        elapsedMs: Date.now() - startedAt
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    suffix,
+    launchpad: launchpadAddress,
+    chainId,
+    attempts: maxIterations,
+    elapsedMs: Date.now() - startedAt
+  };
+}
+
+async function readRequiredTokenSuffix() {
+  try {
+    const suffix = Number(await launchpad.requiredTokenSuffix());
+    return suffix > 0 ? suffix.toString(16).padStart(4, "0") : "";
+  } catch {
+    return defaultVanitySuffix || "";
+  }
+}
+
+function normalizeCreateParams(params) {
+  return {
+    beastName: requiredString(params.beastName, "params.beastName"),
+    tokenName: requiredString(params.tokenName, "params.tokenName"),
+    tokenSymbol: requiredString(params.tokenSymbol, "params.tokenSymbol"),
+    metadataURI: String(params.metadataURI || ""),
+    initialSupply: BigInt(params.initialSupply || 0),
+    auraThreshold: BigInt(params.auraThreshold || 0)
+  };
 }
 
 async function saveDataUrlAsset(dataUrl, request) {
@@ -394,6 +526,14 @@ function normalizeAddress(value) {
 function normalizeOptionalAddress(value) {
   const raw = String(value || "").trim();
   return isAddress(raw) ? getAddress(raw) : "";
+}
+
+function requiredString(value, label) {
+  const text = String(value || "").trim();
+  if (!text) {
+    throw new Error(`${label} is required.`);
+  }
+  return text;
 }
 
 function readJson(filePath, fallback) {

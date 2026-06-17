@@ -15,10 +15,11 @@ contract RuyiBeastTokenDeployer {
         uint256 projectId,
         string memory beastName,
         string memory metadataURI,
-        uint256 auraThreshold
+        uint256 auraThreshold,
+        bytes32 salt
     ) external returns (address token) {
         token = address(
-            new RuyiBeastToken(
+            new RuyiBeastToken{salt: salt}(
                 tokenName,
                 tokenSymbol,
                 initialSupply,
@@ -46,7 +47,8 @@ contract RuyiBeastSaleVaultDeployer {
         uint256 maxMintPerWallet,
         uint256 whitelistMintLimit,
         bool whitelistEnabled,
-        uint256 saleDeadline
+        uint256 saleDeadline,
+        bool autoOpenTrading
     ) external returns (address saleVault) {
         saleVault = address(
             new RuyiBeastSaleVault(
@@ -60,7 +62,8 @@ contract RuyiBeastSaleVaultDeployer {
                 maxMintPerWallet,
                 whitelistMintLimit,
                 whitelistEnabled,
-                saleDeadline
+                saleDeadline,
+                autoOpenTrading
             )
         );
     }

@@ -5,10 +5,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract MockDexRouter {
     address public immutable WETH;
+    address public immutable factory;
     uint256 public liquidityNonce;
+    mapping(address => mapping(address => address)) public getPair;
 
     constructor(address weth_) {
         WETH = weth_;
+        factory = address(this);
     }
 
     receive() external payable {}
@@ -65,6 +68,7 @@ contract MockDexRouter {
     ) external payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity) {
         require(msg.value > 0, "MockRouter: zero native");
         require(IERC20(token).transferFrom(msg.sender, address(this), amountTokenDesired), "MockRouter: token failed");
+        _ensurePair(token, WETH);
 
         amountToken = amountTokenDesired;
         amountETH = msg.value;
@@ -83,9 +87,23 @@ contract MockDexRouter {
     ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
         require(IERC20(tokenA).transferFrom(msg.sender, address(this), amountADesired), "MockRouter: tokenA failed");
         require(IERC20(tokenB).transferFrom(msg.sender, address(this), amountBDesired), "MockRouter: tokenB failed");
+        _ensurePair(tokenA, tokenB);
 
         amountA = amountADesired;
         amountB = amountBDesired;
         liquidity = ++liquidityNonce;
+    }
+
+    function createPair(address tokenA, address tokenB) external returns (address pair) {
+        pair = _ensurePair(tokenA, tokenB);
+    }
+
+    function _ensurePair(address tokenA, address tokenB) private returns (address pair) {
+        pair = getPair[tokenA][tokenB];
+        if (pair == address(0)) {
+            pair = address(uint160(uint256(keccak256(abi.encodePacked(tokenA, tokenB, address(this))))));
+            getPair[tokenA][tokenB] = pair;
+            getPair[tokenB][tokenA] = pair;
+        }
     }
 }

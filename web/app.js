@@ -1,5 +1,6 @@
 const ethers = window.ethers;
 const BACKEND_URL = String(window.RUYI_CONFIG?.backendUrl || "").trim().replace(/\/+$/, "");
+const VANITY_SUFFIX = String(window.RUYI_CONFIG?.vanitySuffix || "dddd").trim().replace(/^0x/i, "").toLowerCase();
 
 const LAUNCHPAD_ABI = [
   "function owner() view returns (address)",
@@ -18,7 +19,7 @@ const LAUNCHPAD_ABI = [
   "function setDexConfig(address token,address router,address pairedToken,address pair,address liquidityReceiver,address buybackRecipient,bool nativePair,bool burnBuyback,bool enabled)",
   "function setDexAutomationConfig(address token,uint16 autoBuybackBps,uint16 autoLiquidityBps,uint256 autoProcessThreshold,uint256 autoProcessLimit)",
   "function processAutoDex(address token) returns (uint256 processedAmount,uint256 buybackOut,uint256 liquidity)",
-  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 mintCount,uint256 tokensPerMint,uint256 mintPrice,uint256 maxMintPerWallet,uint256 whitelistMintLimit,bool whitelistEnabled,uint256 saleDeadline,address fundsReceiver,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) buyFees,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) sellFees,bool customFees) params) payable returns (address token)",
+  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 mintCount,uint256 tokensPerMint,uint256 mintPrice,uint256 maxMintPerWallet,uint256 whitelistMintLimit,bool whitelistEnabled,uint256 saleDeadline,address fundsReceiver,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) buyFees,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) sellFees,bool customFees,bool autoOpenTrading,bytes32 salt) params) payable returns (address token)",
   "event BeastCreated(uint256 indexed projectId,address indexed token,address indexed creator,string beastName,string tokenName,string tokenSymbol,uint8 beastType)"
 ];
 
@@ -77,6 +78,7 @@ const SALE_VAULT_ABI = [
   "function nativeRaised() view returns (uint256)",
   "function finalized() view returns (bool)",
   "function cancelled() view returns (bool)",
+  "function autoOpenTrading() view returns (bool)",
   "function purchased(address account) view returns (uint256)",
   "function mint(uint256 quantity) payable",
   "function buy(uint256 quantity) payable",
@@ -755,7 +757,8 @@ async function fetchSaleInfo(saleVault) {
     saleDeadline,
     nativeRaised,
     finalized,
-    cancelled
+    cancelled,
+    autoOpenTrading
   ] = await Promise.all([
     sale.creator().catch(() => ZERO_ADDRESS),
     sale.liquidityRouter().catch(() => ZERO_ADDRESS),
@@ -780,7 +783,8 @@ async function fetchSaleInfo(saleVault) {
     sale.saleDeadline().catch(() => ZERO),
     sale.nativeRaised().catch(() => ZERO),
     sale.finalized().catch(() => false),
-    sale.cancelled().catch(() => false)
+    sale.cancelled().catch(() => false),
+    sale.autoOpenTrading().catch(() => true)
   ]);
 
   const normalizedSale = {
@@ -807,7 +811,8 @@ async function fetchSaleInfo(saleVault) {
     saleDeadline: BigInt(saleDeadline),
     nativeRaised: BigInt(nativeRaised),
     finalized,
-    cancelled
+    cancelled,
+    autoOpenTrading
   };
   normalizedSale.shareMintMode = normalizedSale.mintCount > ZERO && normalizedSale.tokensPerMint > ZERO;
   normalizedSale.currentWalletMinted = state.account ? await sale.purchased(state.account).catch(() => ZERO) : ZERO;
@@ -1087,16 +1092,18 @@ function renderSalePanel(project) {
   const sale = project?.sale || null;
   const status = saleStatusLabel(project);
   const hasSale = Boolean(sale);
+  const soldOut = hasSale && sale.remainingMintCount === ZERO;
+  const deadlineExpired = hasSale && saleDeadlineExpired(sale);
   const canBuy = hasSale && (status === "Mint中" || (status === "白名单 Mint" && sale.currentWalletWhitelisted));
   const canRefund = false;
-  const canFinalize = hasSale && status === "可开盘";
-  const canCancel = hasSale && saleDeadlineExpired(sale) && sale.nativeRaised === ZERO;
+  const canFinalize = hasSale && !sale.finalized && !sale.cancelled && !project.tradingEnabled && (soldOut || deadlineExpired);
+  const canCancel = hasSale && deadlineExpired && sale.nativeRaised === ZERO;
   const canWithdraw = hasSale && sale.cancelled && sale.nativeRaised === ZERO;
   const isSaleCreator = hasSale && state.account && sameAddress(state.account, sale.creator);
   const isProjectCreator = Boolean(project && state.account && sameAddress(state.account, project.creator));
   const canDirectOpen = Boolean(project && !hasSale && !project.tradingEnabled && isProjectCreator);
-  const canOpenTrading = (canFinalize && (isSaleCreator || saleDeadlineExpired(sale))) || canDirectOpen;
-  const saleHint = salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator });
+  const canOpenTrading = (canFinalize && ((soldOut && isSaleCreator) || deadlineExpired)) || canDirectOpen;
+  const saleHint = salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator, soldOut, deadlineExpired });
 
   $$("[data-sale-panel]").forEach((panel) => {
     panel.dataset.saleState = hasSale ? status : "未开启 Mint";
@@ -1113,6 +1120,7 @@ function renderSalePanel(project) {
   setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ${NATIVE_SYMBOL}` : "--");
   setText("[data-sale-receiver]", hasSale ? "黑洞锁定" : "--");
   setText("[data-sale-router]", hasSale ? shortAddress(sale.liquidityRouter) : "--");
+  setText("[data-sale-open-mode]", hasSale ? (sale.autoOpenTrading ? "Mint 满自动开盘" : "手动确认开盘") : "--");
   setText("[data-sale-liquidity-ratio]", hasSale ? `${formatBps(sale.liquidityTokenBps)} 加池` : "--");
   setText("[data-sale-whitelist-status]", hasSale ? whitelistStatusText(sale) : "--");
   setText("[data-sale-whitelist-quota]", hasSale && sale.whitelistMintLimit > ZERO ? (sale.shareMintMode ? `${formatShareCount(sale.whitelistMinted)} / ${formatShareCount(sale.whitelistMintLimit)}` : `${formatToken(sale.whitelistMinted, project.symbol)} / ${formatToken(sale.whitelistMintLimit, project.symbol)}`) : "--");
@@ -1174,7 +1182,12 @@ function renderSalePanel(project) {
     const input = form.querySelector("input");
     const button = form.querySelector("button");
     const buttonLabel = button?.querySelector("span");
-    if (input) input.disabled = !canOpenTrading;
+    if (input) {
+      input.disabled = !canOpenTrading;
+      input.placeholder = hasSale && sale.autoOpenTrading && !canOpenTrading
+        ? "自动开盘项目无需填写"
+        : "填写 DEX 交易对地址后开盘";
+    }
     if (button) button.disabled = !canOpenTrading;
     if (buttonLabel) buttonLabel.textContent = project?.tradingEnabled ? "已开盘" : "确认开盘";
   });
@@ -1185,7 +1198,7 @@ function renderSalePanel(project) {
   setDisabled("[data-action='withdraw-cancelled-tokens']", !(canWithdraw && isSaleCreator));
 }
 
-function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator }) {
+function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator, soldOut, deadlineExpired }) {
   if (!project) return "请选择一个神兽后查看 Mint 和开盘状态。";
   if (project.tradingEnabled) return "该神兽已开盘，交易权限已经开启。";
   if (!hasSale) {
@@ -1195,8 +1208,8 @@ function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirec
   if (status === "待配置加池") return "等待配置 Pancake Router 后开放 Mint。Mint 的 BNB 会自动配对 Token 加池，LP 默认进入黑洞。";
   if (status === "白名单 Mint") return canBuy ? "当前为白名单 Mint 阶段，你的钱包已在名单内。" : "当前为白名单 Mint 阶段，未在名单内的钱包暂不能 Mint。";
   if (canBuy) return "当前可按份 Mint；也可以直接转 BNB 到 Token 合约，系统会按每份价格自动 Mint。BNB 会和加池 Token 自动加入 Pancake，LP 默认进入黑洞。";
-  if (canFinalize && isSaleCreator) return "Mint 已结束，创建者可填写交易对地址并确认开盘。";
-  if (status === "可开盘") return "Mint 截止时间已到，任何人都可以填写交易对地址并确认开盘。";
+  if (canFinalize && soldOut && isSaleCreator) return "Mint 已满，创建者可手动填写交易对地址并确认开盘；自动模式会在最后一笔 Mint 后直接开盘。";
+  if (canFinalize && deadlineExpired) return "Mint 截止时间已到，任何人都可以填写交易对地址并确认开盘。";
   if (status === "已取消") return "该 Mint 发射未开始且已取消，剩余 Token 可由创建者取回。";
   return "当前状态暂不能操作，请等待 Mint 结束或刷新链上数据。";
 }
@@ -1651,6 +1664,66 @@ function readCreatedBeastToken(receipt) {
   return "";
 }
 
+async function resolveVanitySalt(params) {
+  if (!VANITY_SUFFIX) {
+    return { salt: ethers.ZeroHash, suffix: "", tokenAddress: "" };
+  }
+  if (!state.account) {
+    throw new Error("请先连接钱包后再生成靓号合约。");
+  }
+
+  const response = await fetch(apiUrl("/api/vanity-salt"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      suffix: VANITY_SUFFIX,
+      maxIterations: 500000,
+      creator: state.account,
+      params: serializeCreateParams(params)
+    }),
+  });
+  if (!response.ok) {
+    throw new Error("靓号合约服务暂时不可用，请稍后再试。");
+  }
+
+  const result = await response.json();
+  if (!result?.ok || !/^0x[0-9a-fA-F]{64}$/.test(result.salt || "")) {
+    throw new Error(`本次没有匹配到尾号 ${VANITY_SUFFIX} 的靓号合约，请重新点击创建。`);
+  }
+  if (
+    !result.launchpad ||
+    !ethers.isAddress(result.launchpad) ||
+    !sameAddress(result.launchpad, state.launchpadAddress) ||
+    Number(result.chainId || 0) !== Number(window.RUYI_CONFIG?.chainId || 56)
+  ) {
+    throw new Error("靓号服务和当前发射台配置不一致，请刷新页面后重试。");
+  }
+
+  const suffix = String(result.suffix || VANITY_SUFFIX).toLowerCase();
+  const tokenAddress = ethers.isAddress(result.tokenAddress || "") ? result.tokenAddress : "";
+  if (!tokenAddress || !tokenAddress.toLowerCase().endsWith(suffix)) {
+    throw new Error("靓号地址校验失败，请重新点击创建。");
+  }
+
+  return {
+    salt: result.salt,
+    suffix,
+    tokenAddress,
+    attempts: Number(result.attempts || 0)
+  };
+}
+
+function serializeCreateParams(params) {
+  return {
+    beastName: params.beastName,
+    tokenName: params.tokenName,
+    tokenSymbol: params.tokenSymbol,
+    metadataURI: params.metadataURI,
+    initialSupply: params.initialSupply.toString(),
+    auraThreshold: params.auraThreshold.toString()
+  };
+}
+
 async function queueProjectVerification(tokenAddress) {
   if (!ethers.isAddress(tokenAddress)) return false;
 
@@ -1800,7 +1873,9 @@ async function createBeast(event) {
     fundsReceiver,
     buyFees: splitFeeRates(DEFAULT_BUY_TAX_BPS, DEFAULT_BUY_FEE_TEMPLATE),
     sellFees: splitFeeRates(DEFAULT_SELL_TAX_BPS, DEFAULT_SELL_FEE_TEMPLATE),
-    customFees: true
+    customFees: true,
+    autoOpenTrading: true,
+    salt: ethers.ZeroHash
   };
 
   try {
@@ -1819,6 +1894,7 @@ async function createBeast(event) {
     params.buyFees = splitFeeRates(buyTaxBps, DEFAULT_BUY_FEE_TEMPLATE);
     params.sellFees = splitFeeRates(sellTaxBps, DEFAULT_SELL_FEE_TEMPLATE);
     params.mintCount = mintCount;
+    params.autoOpenTrading = data.get("openMode") !== "manual";
 
     if (saleEnabled) {
       tokensPerMint = parseTokenAmount(data.get("tokensPerMint"));
@@ -1854,6 +1930,11 @@ async function createBeast(event) {
     const avatarDataUrl = avatarByForm.get(form) || "";
     const imageUrl = await uploadImage(avatarDataUrl);
     params.metadataURI = buildProjectMetadataURI(form, params, imageUrl);
+    const vanity = await resolveVanitySalt(params);
+    params.salt = vanity.salt;
+    if (vanity.tokenAddress) {
+      showToast(`已生成尾号 ${vanity.suffix} 的靓号合约：${shortAddress(vanity.tokenAddress)}`);
+    }
     showToast("创建交易已发起，请在钱包确认。");
     const launchpadWithSigner = state.launchpad.connect(state.signer);
     const tx = await launchpadWithSigner.createBeast(
@@ -1875,7 +1956,9 @@ async function createBeast(event) {
         params.fundsReceiver,
         params.buyFees,
         params.sellFees,
-        params.customFees
+        params.customFees,
+        params.autoOpenTrading,
+        params.salt
       ],
       { value: state.creationFee }
     );

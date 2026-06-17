@@ -7,6 +7,9 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {RuyiBeastToken} from "./RuyiBeastToken.sol";
 
 interface IRuyiMintDexRouter {
+    function WETH() external view returns (address);
+    function factory() external view returns (address);
+
     function addLiquidityETH(
         address token,
         uint256 amountTokenDesired,
@@ -15,6 +18,11 @@ interface IRuyiMintDexRouter {
         address to,
         uint256 deadline
     ) external payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity);
+}
+
+interface IRuyiMintDexFactory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+    function createPair(address tokenA, address tokenB) external returns (address pair);
 }
 
 contract RuyiBeastSaleVault is ReentrancyGuard {
@@ -46,6 +54,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
     bool public finalized;
     bool public cancelled;
     bool public whitelistEnabled;
+    bool public autoOpenTrading;
 
     mapping(address => uint256) public purchased;
     mapping(address => uint256) public tokensPurchased;
@@ -89,7 +98,8 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         uint256 maxMintPerWallet_,
         uint256 whitelistMintLimit_,
         bool whitelistEnabled_,
-        uint256 saleDeadline_
+        uint256 saleDeadline_,
+        bool autoOpenTrading_
     ) {
         require(token_ != address(0), "RuyiSale: zero token");
         require(creator_ != address(0), "RuyiSale: zero creator");
@@ -126,6 +136,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         whitelistMintLimit = whitelistMintLimit_;
         whitelistEnabled = whitelistEnabled_;
         saleDeadline = saleDeadline_;
+        autoOpenTrading = autoOpenTrading_;
     }
 
     receive() external payable {
@@ -248,6 +259,10 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         _sendNative(payable(msg.sender), msg.value - cost, "RuyiSale: refund failed");
 
         emit BeastMinted(buyer, quantity, tokenAmount, liquidityTokenAmount, cost, liquidity);
+
+        if (autoOpenTrading && remainingMintCount == 0) {
+            _finalize(_resolveLaunchPair());
+        }
     }
 
     function _consumeMintQuota(address buyer, uint256 quantity) private {
@@ -304,6 +319,12 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
             require(msg.sender == creator, "RuyiSale: only creator");
         }
 
+        _finalize(pair);
+    }
+
+    function _finalize(address pair) private {
+        require(pair != address(0), "RuyiSale: zero pair");
+
         uint256 unsoldTokens = remainingSaleSupply;
         uint256 proceeds = nativeRaised;
         finalized = true;
@@ -319,6 +340,21 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         token.transferOwnership(creator);
 
         emit LaunchFinalized(pair, proceeds, unsoldTokens);
+    }
+
+    function _resolveLaunchPair() private returns (address pair) {
+        address router = liquidityRouter;
+        require(router != address(0), "RuyiSale: zero router");
+
+        address factory = IRuyiMintDexRouter(router).factory();
+        address pairedAsset = IRuyiMintDexRouter(router).WETH();
+        require(factory != address(0) && pairedAsset != address(0), "RuyiSale: bad router");
+
+        pair = IRuyiMintDexFactory(factory).getPair(address(token), pairedAsset);
+        if (pair == address(0)) {
+            pair = IRuyiMintDexFactory(factory).createPair(address(token), pairedAsset);
+        }
+        require(pair != address(0), "RuyiSale: zero pair");
     }
 
     function cancel() external onlyCreator {

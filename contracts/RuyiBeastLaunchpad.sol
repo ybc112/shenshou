@@ -18,7 +18,8 @@ interface IRuyiBeastTokenDeployer {
         uint256 projectId,
         string memory beastName,
         string memory metadataURI,
-        uint256 auraThreshold
+        uint256 auraThreshold,
+        bytes32 salt
     ) external returns (address token);
 }
 
@@ -34,7 +35,8 @@ interface IRuyiBeastSaleVaultDeployer {
         uint256 maxMintPerWallet,
         uint256 whitelistMintLimit,
         bool whitelistEnabled,
-        uint256 saleDeadline
+        uint256 saleDeadline,
+        bool autoOpenTrading
     ) external returns (address saleVault);
 }
 
@@ -60,6 +62,7 @@ interface IRuyiLaunchToken is IERC20 {
 contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant DEFAULT_SUPPLY = 1_000_000_000 ether;
     uint16 public constant BPS = 10_000;
+    uint16 public constant DEFAULT_REQUIRED_TOKEN_SUFFIX = 0xdddd;
     address public constant PANCAKE_V2_ROUTER_BSC = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
 
     enum BeastType {
@@ -92,6 +95,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         IRuyiLaunchToken.FeeRates buyFees;
         IRuyiLaunchToken.FeeRates sellFees;
         bool customFees;
+        bool autoOpenTrading;
+        bytes32 salt;
     }
 
     struct BeastProject {
@@ -114,6 +119,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     address public platformTreasury;
     address public defaultMintLiquidityRouter;
     uint256 public creationFee;
+    uint16 public requiredTokenSuffix;
 
     BeastProject[] private _projects;
     mapping(address => bool) public isLaunchpadToken;
@@ -148,6 +154,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     event CreationFeeUpdated(uint256 creationFee);
     event PlatformTreasuryUpdated(address indexed platformTreasury);
     event DefaultMintLiquidityRouterUpdated(address indexed router);
+    event RequiredTokenSuffixUpdated(uint16 indexed suffix);
     event NativeWithdrawn(address indexed to, uint256 amount);
     event DexOperatorUpdated(address indexed operator, bool enabled);
 
@@ -169,6 +176,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         creationFee = creationFee_;
         tokenDeployer = tokenDeployer_;
         saleVaultDeployer = saleVaultDeployer_;
+        requiredTokenSuffix = DEFAULT_REQUIRED_TOKEN_SUFFIX;
         if (block.chainid == 56) {
             defaultMintLiquidityRouter = PANCAKE_V2_ROUTER_BSC;
         }
@@ -214,6 +222,10 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             require(params.fundsReceiver == address(0), "RuyiLaunchpad: sale supply required");
         }
 
+        bytes32 tokenSalt = keccak256(
+            abi.encodePacked(msg.sender, params.salt, params.tokenName, params.tokenSymbol, block.chainid)
+        );
+
         token = IRuyiBeastTokenDeployer(tokenDeployer).deployToken(
             params.tokenName,
             params.tokenSymbol,
@@ -224,8 +236,10 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             projectId,
             params.beastName,
             params.metadataURI,
-            auraThreshold
+            auraThreshold,
+            tokenSalt
         );
+        _requireTokenSuffix(token);
 
         vault.registerToken(token);
         IRuyiLaunchToken beastToken = IRuyiLaunchToken(token);
@@ -248,7 +262,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 params.maxMintPerWallet,
                 params.whitelistMintLimit,
                 params.whitelistEnabled,
-                params.saleDeadline
+                params.saleDeadline,
+                params.autoOpenTrading
             );
 
             uint256 creatorSupply = initialSupply - mintVaultSupply;
@@ -343,6 +358,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     function setDefaultMintLiquidityRouter(address router) external onlyOwner {
         defaultMintLiquidityRouter = router;
         emit DefaultMintLiquidityRouterUpdated(router);
+    }
+
+    function setRequiredTokenSuffix(uint16 suffix) external onlyOwner {
+        requiredTokenSuffix = suffix;
+        emit RequiredTokenSuffixUpdated(suffix);
     }
 
     function setEvolutionPayoutConfig(
@@ -574,6 +594,14 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         }
 
         _sendNative(payable(msg.sender), refund, "RuyiLaunchpad: refund failed");
+    }
+
+    function _requireTokenSuffix(address token) private view {
+        uint16 suffix = requiredTokenSuffix;
+        if (suffix == 0) {
+            return;
+        }
+        require(uint16(uint160(token)) == suffix, "RuyiLaunchpad: bad token suffix");
     }
 
     function _sendNative(address payable to, uint256 amount, string memory errorMessage) private {
