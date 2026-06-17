@@ -33,6 +33,9 @@ const TOKEN_ABI = [
   "function auraThreshold() view returns (uint256)",
   "function tradingEnabled() view returns (bool)",
   "function totalFeeBps(bool sell) view returns (uint256)",
+  "function buyFees() view returns (uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn)",
+  "function sellFees() view returns (uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn)",
+  "function automatedMarketMakerPairs(address pair) view returns (bool)",
   "function withdrawableDividendOf(address account) view returns (uint256)",
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 amount) returns (bool)",
@@ -98,6 +101,7 @@ const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "d
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
+const PLATFORM_TAX_SHARE_BPS = 2_000n;
 const MAX_BUY_TAX_BPS = 500;
 const MAX_SELL_TAX_BPS = 1000;
 const DEFAULT_BUY_TAX_BPS = 300;
@@ -122,9 +126,23 @@ const PANCAKE_FACTORY_ABI = [
   "function getPair(address tokenA,address tokenB) view returns (address pair)"
 ];
 
+const ROUTER_ABI = [
+  "function factory() view returns (address)",
+  "function WETH() view returns (address)"
+];
+
 const PANCAKE_PAIR_ABI = [
   "function token0() view returns (address)",
   "function token1() view returns (address)"
+];
+
+const FEE_BUCKET_LABELS = [
+  ["evolution", "进化池"],
+  ["fortune", "幸运池"],
+  ["risk", "风险池"],
+  ["reward", "奖励池"],
+  ["treasury", "金库"],
+  ["burn", "直接销毁"]
 ];
 
 const state = {
@@ -149,6 +167,31 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 function shortAddress(address) {
   if (!address || address === "--") return "--";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function isDeadAddress(address) {
+  return sameAddress(address, DEAD_ADDRESS);
+}
+
+function displayAddress(address, fallback = "--") {
+  if (!address || !ethers.isAddress(address) || sameAddress(address, ZERO_ADDRESS)) return fallback;
+  return shortAddress(address);
+}
+
+function lpReceiverLabel(address) {
+  if (!address || !ethers.isAddress(address) || sameAddress(address, ZERO_ADDRESS)) return "--";
+  return isDeadAddress(address) ? `黑洞 ${shortAddress(address)}` : shortAddress(address);
+}
+
+function setAddressText(selector, label, address = "") {
+  $$(selector).forEach((el) => {
+    el.textContent = label;
+    if (address && ethers.isAddress(address) && !sameAddress(address, ZERO_ADDRESS)) {
+      el.title = address;
+    } else {
+      el.removeAttribute("title");
+    }
+  });
 }
 
 function formatToken(value, symbol = "") {
@@ -210,6 +253,76 @@ function splitFeeRates(totalBps, template) {
   }
   output[remainderIndex] = totalBps - assigned;
   return output;
+}
+
+function normalizeFeeRates(rates) {
+  if (!rates) {
+    return {
+      evolution: ZERO,
+      fortune: ZERO,
+      risk: ZERO,
+      reward: ZERO,
+      treasury: ZERO,
+      burn: ZERO
+    };
+  }
+
+  return {
+    evolution: BigInt(rates.evolution ?? rates[0] ?? 0),
+    fortune: BigInt(rates.fortune ?? rates[1] ?? 0),
+    risk: BigInt(rates.risk ?? rates[2] ?? 0),
+    reward: BigInt(rates.reward ?? rates[3] ?? 0),
+    treasury: BigInt(rates.treasury ?? rates[4] ?? 0),
+    burn: BigInt(rates.burn ?? rates[5] ?? 0)
+  };
+}
+
+function effectiveFeeBreakdown(totalBps, rates) {
+  const total = BigInt(totalBps || 0);
+  const normalized = normalizeFeeRates(rates);
+  const rateTotal = FEE_BUCKET_LABELS.reduce((sum, [key]) => sum + normalized[key], ZERO);
+  const output = Object.fromEntries(FEE_BUCKET_LABELS.map(([key]) => [key, ZERO]));
+  if (total === ZERO || rateTotal === ZERO) return output;
+
+  const platformBps = (total * PLATFORM_TAX_SHARE_BPS) / BPS;
+  const projectBps = total - platformBps;
+  let assigned = ZERO;
+  let lastKey = "treasury";
+  FEE_BUCKET_LABELS.forEach(([key]) => {
+    if (normalized[key] > ZERO) lastKey = key;
+  });
+
+  FEE_BUCKET_LABELS.forEach(([key]) => {
+    if (key === lastKey) return;
+    output[key] = (projectBps * normalized[key]) / rateTotal;
+    assigned += output[key];
+  });
+  output[lastKey] += projectBps - assigned;
+  output.treasury += platformBps;
+  return output;
+}
+
+function taxBreakdownMarkup(title, totalBps, rates) {
+  const breakdown = effectiveFeeBreakdown(totalBps, rates);
+  const rows = FEE_BUCKET_LABELS
+    .map(([key, label]) => `<span>${label}</span><strong>${formatBps(breakdown[key])}</strong>`)
+    .join("");
+  return `<section><h3>${title} ${formatBps(totalBps)}</h3><div>${rows}</div></section>`;
+}
+
+function renderTaxBreakdown(project) {
+  const container = $("[data-tax-breakdown]");
+  if (!container) return;
+
+  if (!project) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = [
+    taxBreakdownMarkup("买入税", project.buyTaxBps, project.buyFeeRates),
+    taxBreakdownMarkup("卖出税", project.sellTaxBps, project.sellFeeRates)
+  ].join("");
 }
 
 function formatDateTime(timestamp) {
@@ -698,6 +811,8 @@ async function enrichProject(project) {
     pools,
     buyTaxBps,
     sellTaxBps,
+    buyFeeRates,
+    sellFeeRates,
     evolutionConfig,
     rewardConfig,
     dexConfig,
@@ -712,6 +827,8 @@ async function enrichProject(project) {
     state.vault.poolBalances(project.token).catch(() => null),
     token.totalFeeBps(false).catch(() => 300n),
     token.totalFeeBps(true).catch(() => 500n),
+    token.buyFees().catch(() => null),
+    token.sellFees().catch(() => null),
     state.vault.evolutionPayoutConfigs(project.token).catch(() => null),
     state.vault.rewardConfigs(project.token).catch(() => null),
     state.vault.dexConfigs(project.token).catch(() => null),
@@ -722,7 +839,7 @@ async function enrichProject(project) {
   const auraValue = BigInt(aura);
   const thresholdValue = BigInt(threshold);
   const progress = percentOf(auraValue, thresholdValue);
-  const sale = await fetchSaleInfo(saleVault);
+  const sale = await fetchSaleInfo(project.token, saleVault);
 
   return {
     ...project,
@@ -735,6 +852,8 @@ async function enrichProject(project) {
     pools,
     buyTaxBps: BigInt(buyTaxBps),
     sellTaxBps: BigInt(sellTaxBps),
+    buyFeeRates: normalizeFeeRates(buyFeeRates),
+    sellFeeRates: normalizeFeeRates(sellFeeRates),
     evolutionConfig: normalizeEvolutionConfig(evolutionConfig),
     rewardConfig: normalizeRewardConfig(rewardConfig),
     dexConfig: normalizeDexConfig(dexConfig),
@@ -745,7 +864,7 @@ async function enrichProject(project) {
   };
 }
 
-async function fetchSaleInfo(saleVault) {
+async function fetchSaleInfo(tokenAddress, saleVault) {
   if (!saleVault || saleVault === ZERO_ADDRESS) return null;
 
   const sale = new ethers.Contract(saleVault, SALE_VAULT_ABI, state.provider);
@@ -834,7 +953,32 @@ async function fetchSaleInfo(saleVault) {
   normalizedSale.currentWalletMinted = state.account ? await sale.purchased(state.account).catch(() => ZERO) : ZERO;
   normalizedSale.userMinted = normalizedSale.shareMintMode ? normalizedSale.currentWalletMinted : mintedAmountFromRaised(normalizedSale);
   normalizedSale.maxUserMintRemaining = maxUserMintFromRemaining(normalizedSale);
+  const launchPair = await resolveLaunchPairFromRouter(tokenAddress, normalizedSale.liquidityRouter);
+  normalizedSale.launchPair = launchPair;
+  normalizedSale.launchPairMarked = launchPair !== ZERO_ADDRESS
+    ? await new ethers.Contract(tokenAddress, TOKEN_ABI, state.provider).automatedMarketMakerPairs(launchPair).catch(() => false)
+    : false;
   return normalizedSale;
+}
+
+async function resolveLaunchPairFromRouter(tokenAddress, routerAddress) {
+  if (!tokenAddress || !ethers.isAddress(tokenAddress) || !routerAddress || !ethers.isAddress(routerAddress) || sameAddress(routerAddress, ZERO_ADDRESS)) {
+    return ZERO_ADDRESS;
+  }
+
+  try {
+    const router = new ethers.Contract(routerAddress, ROUTER_ABI, state.provider);
+    const [factoryAddress, pairedAsset] = await Promise.all([
+      router.factory().catch(() => ZERO_ADDRESS),
+      router.WETH().catch(() => WBNB_ADDRESS)
+    ]);
+    if (!ethers.isAddress(factoryAddress) || sameAddress(factoryAddress, ZERO_ADDRESS)) return ZERO_ADDRESS;
+    const factory = new ethers.Contract(factoryAddress, PANCAKE_FACTORY_ABI, state.provider);
+    const pair = await factory.getPair(tokenAddress, pairedAsset);
+    return ethers.isAddress(pair) ? pair : ZERO_ADDRESS;
+  } catch {
+    return ZERO_ADDRESS;
+  }
 }
 
 function updateStats() {
@@ -1076,6 +1220,7 @@ function renderSelectedProject(project) {
     setText("[data-selected-aura-label]", "--");
     setText("[data-tax-buy]", "--");
     setText("[data-tax-sell]", "--");
+    renderTaxBreakdown(null);
     renderSalePanel(null);
     renderAdminTools(null);
     updateSelectedActionState(null);
@@ -1096,6 +1241,7 @@ function renderSelectedProject(project) {
   setText("[data-selected-aura-label]", `${formatToken(project.aura, project.symbol)} / ${formatToken(project.auraThreshold, project.symbol)}`);
   setText("[data-tax-buy]", formatBps(project.buyTaxBps));
   setText("[data-tax-sell]", formatBps(project.sellTaxBps));
+  renderTaxBreakdown(project);
   renderSalePanel(project);
   renderAdminTools(project);
   updateSelectedActionState(project);
@@ -1134,8 +1280,9 @@ function renderSalePanel(project) {
   setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? (sale.shareMintMode ? formatShareCount(sale.maxMintPerWallet) : formatToken(sale.maxMintPerWallet, project.symbol)) : hasSale ? "不限" : "--");
   setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
   setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ${NATIVE_SYMBOL}` : "--");
-  setText("[data-sale-receiver]", hasSale ? "黑洞锁定" : "--");
+  setAddressText("[data-sale-receiver]", hasSale ? lpReceiverLabel(sale.liquidityReceiver) : "--", hasSale ? sale.liquidityReceiver : "");
   setText("[data-sale-router]", hasSale ? shortAddress(sale.liquidityRouter) : "--");
+  setAddressText("[data-sale-pair]", hasSale ? displayAddress(sale.launchPair) : "--", hasSale ? sale.launchPair : "");
   setText("[data-sale-open-mode]", hasSale ? (sale.autoOpenTrading ? "Mint 满自动开盘" : "手动确认开盘") : "--");
   setText("[data-sale-liquidity-ratio]", hasSale ? `${formatBps(sale.liquidityTokenBps)} 加池` : "--");
   setText("[data-sale-whitelist-status]", hasSale ? whitelistStatusText(sale) : "--");
@@ -1251,6 +1398,11 @@ function renderAdminTools(project) {
     const disabled = ownerReady ? "" : "disabled";
     const ownerBadge = ownerReady ? "管理员已连接" : "仅管理员";
     const dexStatus = dex.enabled ? "已启用" : "未启用";
+    const salePair = project.sale?.launchPair || ZERO_ADDRESS;
+    const salePairLabel = salePair && !sameAddress(salePair, ZERO_ADDRESS)
+      ? `${shortAddress(salePair)}${project.sale?.launchPairMarked ? "" : " 未标记"}`
+      : "未生成";
+    const lpReceiver = project.sale?.liquidityReceiver || dex.liquidityReceiver || ZERO_ADDRESS;
 
     container.innerHTML = `
       <section class="admin-panel">
@@ -1289,14 +1441,16 @@ function renderAdminTools(project) {
       <section class="admin-panel">
         <div class="admin-head">
           <div>
-            <span>DEX 自动机制</span>
+            <span>自动回购/加池</span>
             <strong>${dexStatus}</strong>
           </div>
-          <small>配置后，卖出交易会按阈值尝试自动回购和自动加池。</small>
+          <small>交易税只在 Pancake 买入/卖出时扣；Mint 到账和普通转账不扣。这里配置的是税池达到阈值后的自动回购和自动加池。</small>
         </div>
         <div class="dex-summary">
-          <div><span>路由</span><strong>${shortAddress(dex.router)}</strong></div>
-          <div><span>交易对</span><strong>${shortAddress(dex.pair)}</strong></div>
+          <div><span>扣税 Pair</span><strong title="${escapeHtml(salePair)}">${salePairLabel}</strong></div>
+          <div><span>LP 接收</span><strong title="${escapeHtml(lpReceiver)}">${lpReceiverLabel(lpReceiver)}</strong></div>
+          <div><span>自动路由</span><strong>${shortAddress(dex.router)}</strong></div>
+          <div><span>自动 Pair</span><strong>${shortAddress(dex.pair)}</strong></div>
           <div><span>自动回购</span><strong>${formatBps(dex.autoBuybackBps)}</strong></div>
           <div><span>自动加池</span><strong>${formatBps(dex.autoLiquidityBps)}</strong></div>
         </div>
@@ -1433,6 +1587,12 @@ function renderDataCenter() {
   tbody.innerHTML = state.projects.map((project) => {
     const pools = normalizePools(project.pools);
     const dex = project.dexConfig || normalizeDexConfig(null);
+    const salePair = project.sale?.launchPair || ZERO_ADDRESS;
+    const dexStatus = dex.enabled
+      ? `自动已启用 <small>${shortAddress(dex.router)}</small>`
+      : salePair && !sameAddress(salePair, ZERO_ADDRESS)
+        ? `已开盘 <small>${shortAddress(salePair)}</small>`
+        : "未启用";
     return `
       <tr>
         <td>${escapeHtml(project.beastName)} <small>${escapeHtml(project.symbol)}</small></td>
@@ -1443,7 +1603,7 @@ function renderDataCenter() {
         <td>${formatToken(pools.risk, project.symbol)}</td>
         <td>${formatToken(pools.reward, project.symbol)}</td>
         <td>${formatToken(pools.treasury, project.symbol)}</td>
-        <td>${dex.enabled ? "已启用" : "未启用"} <small>${shortAddress(dex.router)}</small></td>
+        <td>${dexStatus}</td>
         <td>${formatBps(dex.autoBuybackBps)} / ${formatBps(dex.autoLiquidityBps)} <small>回购 / 加池</small></td>
         <td>${saleStatusLabel(project)}</td>
         <td>${formatToken(pools.burned, project.symbol)}</td>

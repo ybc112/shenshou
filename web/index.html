@@ -170,6 +170,7 @@
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
                   <div><span>LP 锁定</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
+                  <div><span>Pancake Pair</span><strong data-sale-pair>--</strong></div>
                   <div><span>开盘方式</span><strong data-sale-open-mode>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
                   <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
@@ -229,6 +230,7 @@
                 <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
                 <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
                 <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
+                <p class="form-wide tax-form-note">买税最高 5%，卖税最高 10%。只有 Pancake 交易对买入/卖出扣税，Mint 到账和普通转账不扣税；手续费内含 20% 平台份额。</p>
                 <div class="form-wide mode-toggle" role="group" aria-label="开盘方式">
                   <span>开盘方式</span>
                   <label><input type="radio" name="openMode" value="auto" checked /><strong>自动开盘</strong><small>Mint 满后自动启用交易</small></label>
@@ -332,7 +334,10 @@
               <div class="tax-grid">
                 <div><span>买入税</span><strong data-tax-buy>--</strong></div>
                 <div><span>卖出税</span><strong data-tax-sell>--</strong></div>
+                <div><span>扣税范围</span><strong>交易对买卖</strong></div>
+                <div><span>Mint/转账</span><strong>不扣税</strong></div>
               </div>
+              <div class="tax-breakdown" data-tax-breakdown></div>
             </section>
 
             <section class="mechanism-card">
@@ -392,6 +397,7 @@
             <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
             <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
             <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
+            <p class="form-wide tax-form-note">买税最高 5%，卖税最高 10%。只有 Pancake 交易对买入/卖出扣税，Mint 到账和普通转账不扣税；手续费内含 20% 平台份额。</p>
             <div class="form-wide mode-toggle" role="group" aria-label="开盘方式">
               <span>开盘方式</span>
               <label><input type="radio" name="openMode" value="auto" checked /><strong>自动开盘</strong><small>Mint 满后自动启用交易</small></label>
@@ -480,7 +486,7 @@
                 <div class="detail-metric"><span>阶段</span><strong data-selected-stage>--</strong></div>
                 <div class="detail-metric"><span>灵气进度</span><strong data-selected-progress>--</strong></div>
                 <div class="detail-metric"><span>奖励池</span><strong data-selected-reward>--</strong></div>
-                <div class="detail-metric"><span>累计销毁</span><strong data-selected-burned>--</strong></div>
+                <div class="detail-metric"><span>直接通缩</span><strong data-selected-burned>--</strong></div>
               </div>
               <div class="progress-line selected-progress">
                 <label>灵气值 <strong data-selected-aura-label>--</strong></label>
@@ -502,6 +508,7 @@
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
                   <div><span>LP 锁定</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
+                  <div><span>Pancake Pair</span><strong data-sale-pair>--</strong></div>
                   <div><span>开盘方式</span><strong data-sale-open-mode>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
                   <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
@@ -626,7 +633,7 @@
                   <th>DEX</th>
                   <th>自动机制</th>
                   <th>发射状态</th>
-                  <th>销毁</th>
+                  <th>直接通缩</th>
                   <th>分红储备</th>
                 </tr>
               </thead>
@@ -715,6 +722,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-stable-create"></script>
+    <script src="./app.js?v=20260617-tax-blackhole"></script>
   </body>
 </html>
