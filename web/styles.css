@@ -421,6 +421,13 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(217, 164, 68, 0.12);
 }
 
+input[readonly] {
+  border-color: rgba(217, 164, 68, 0.28);
+  background: rgba(217, 164, 68, 0.08);
+  color: #ffe3a0;
+  cursor: default;
+}
+
 input[type="file"] {
   display: flex;
   align-items: center;

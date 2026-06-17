@@ -104,6 +104,10 @@ const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const PLATFORM_TAX_SHARE_BPS = 2_000n;
+const FIXED_DEX_AUTO_BUYBACK_BPS = 200n;
+const FIXED_DEX_AUTO_LIQUIDITY_BPS = 50n;
+const FIXED_DEX_AUTO_THRESHOLD = TOKEN_UNIT;
+const FIXED_DEX_AUTO_LIMIT = TOKEN_UNIT;
 const MAX_BUY_TAX_BPS = 500;
 const MAX_SELL_TAX_BPS = 1000;
 const DEFAULT_BUY_TAX_BPS = 300;
@@ -1474,6 +1478,7 @@ function renderAdminTools(project) {
     const defaultDexPair = dex.pair && !sameAddress(dex.pair, ZERO_ADDRESS) ? dex.pair : salePair;
     const defaultNativePair = dex.enabled ? dex.nativePair : true;
     const defaultBurnBuyback = dex.enabled ? dex.burnBuyback : true;
+    const fixedAutoInputState = adminReady ? "readonly" : "disabled";
     const airdropPanel = project.airdropSupported ? `
       <section class="admin-panel">
         <div class="admin-head">
@@ -1545,8 +1550,8 @@ function renderAdminTools(project) {
           <div><span>LP 接收</span><strong title="${escapeHtml(lpReceiver)}">${lpReceiverLabel(lpReceiver)}</strong></div>
           <div><span>自动路由</span><strong>${shortAddress(defaultDexRouter)}</strong></div>
           <div><span>自动 Pair</span><strong>${shortAddress(defaultDexPair)}</strong></div>
-          <div><span>自动回购</span><strong>${formatBps(dex.autoBuybackBps)}</strong></div>
-          <div><span>自动加池</span><strong>${formatBps(dex.autoLiquidityBps)}</strong></div>
+          <div><span>自动回购</span><strong>${formatBps(FIXED_DEX_AUTO_BUYBACK_BPS)}</strong></div>
+          <div><span>自动加池</span><strong>${formatBps(FIXED_DEX_AUTO_LIQUIDITY_BPS)}</strong></div>
         </div>
         <form class="admin-form dex-form" data-dex-config-form>
           <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(defaultDexRouter)}" placeholder="默认 Pancake V2" ${disabled} /></label>
@@ -1559,10 +1564,10 @@ function renderAdminTools(project) {
           <button class="outline-button" type="submit" ${disabled}><i data-lucide="save"></i><span>保存 DEX 配置</span></button>
         </form>
         <form class="admin-form" data-dex-auto-form>
-          <label><span>自动回购 %</span><input name="autoBuyback" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(dex.autoBuybackBps)}" ${disabled} /></label>
-          <label><span>自动加池 %</span><input name="autoLiquidity" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(dex.autoLiquidityBps)}" ${disabled} /></label>
-          <label><span>触发阈值</span><input name="autoThreshold" type="number" min="0" step="1" value="${ethers.formatEther(dex.autoProcessThreshold)}" ${disabled} /></label>
-          <label><span>单次上限</span><input name="autoLimit" type="number" min="0" step="1" value="${ethers.formatEther(dex.autoProcessLimit)}" ${disabled} /></label>
+          <label><span>自动回购 %</span><input name="autoBuyback" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(FIXED_DEX_AUTO_BUYBACK_BPS)}" ${fixedAutoInputState} /></label>
+          <label><span>自动加池 %</span><input name="autoLiquidity" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(FIXED_DEX_AUTO_LIQUIDITY_BPS)}" ${fixedAutoInputState} /></label>
+          <label><span>触发阈值</span><input name="autoThreshold" type="number" min="0" step="1" value="${ethers.formatEther(FIXED_DEX_AUTO_THRESHOLD)}" ${fixedAutoInputState} /></label>
+          <label><span>单次上限</span><input name="autoLimit" type="number" min="0" step="1" value="${ethers.formatEther(FIXED_DEX_AUTO_LIMIT)}" ${fixedAutoInputState} /></label>
           <button class="outline-button" type="submit" ${disabled}><i data-lucide="sliders-horizontal"></i><span>保存自动参数</span></button>
           <button class="gold-button" type="button" data-action="process-auto-dex" ${disabled}><i data-lucide="refresh-cw"></i><span>立即处理税池</span></button>
         </form>
@@ -1575,6 +1580,16 @@ function renderAdminTools(project) {
 
 function addressInputValue(address) {
   return address && !sameAddress(address, ZERO_ADDRESS) ? escapeHtml(address) : "";
+}
+
+function applyFixedDexAutomation(launchpadWithSigner, project) {
+  return launchpadWithSigner.setDexAutomationConfig(
+    project.token,
+    Number(FIXED_DEX_AUTO_BUYBACK_BPS),
+    Number(FIXED_DEX_AUTO_LIQUIDITY_BPS),
+    FIXED_DEX_AUTO_THRESHOLD,
+    FIXED_DEX_AUTO_LIMIT
+  );
 }
 
 function renderNextProject() {
@@ -1698,7 +1713,7 @@ function renderDataCenter() {
         <td>${formatToken(pools.reward, project.symbol)}</td>
         <td>${formatToken(pools.treasury, project.symbol)}</td>
         <td>${dexStatus}</td>
-        <td>${formatBps(dex.autoBuybackBps)} / ${formatBps(dex.autoLiquidityBps)} <small>回购 / 加池</small></td>
+        <td>${formatBps(dex.enabled ? FIXED_DEX_AUTO_BUYBACK_BPS : dex.autoBuybackBps)} / ${formatBps(dex.enabled ? FIXED_DEX_AUTO_LIQUIDITY_BPS : dex.autoLiquidityBps)} <small>回购 / 加池</small></td>
         <td>${saleStatusLabel(project)}</td>
         <td>${formatToken(pools.burned, project.symbol)}</td>
         <td>${formatToken(pools.dividendReserve, project.symbol)}</td>
@@ -2769,7 +2784,10 @@ async function saveDexConfig(event) {
       enabled
     );
     await tx.wait();
-    showToast("DEX 配置已更新");
+    showToast("DEX 配置已更新，正在应用固定自动参数。");
+    const autoTx = await applyFixedDexAutomation(launchpadWithSigner, project);
+    await autoTx.wait();
+    showToast("DEX 配置和固定自动参数已更新");
     await loadProjects();
   } catch (error) {
     console.error(error);
@@ -2779,20 +2797,10 @@ async function saveDexConfig(event) {
 
 async function saveDexAutomationConfig(event) {
   event.preventDefault();
-  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
-  const data = new FormData(form);
   try {
-    const autoBuybackBps = parsePercentBps(data.get("autoBuyback"), "自动回购比例");
-    const autoLiquidityBps = parsePercentBps(data.get("autoLiquidity"), "自动加池比例");
-    if (autoBuybackBps + autoLiquidityBps > 10000) {
-      throw new Error("自动回购和自动加池合计不能超过 100%");
-    }
-    const autoProcessThreshold = parseTokenAmount(data.get("autoThreshold"));
-    const autoProcessLimit = parseTokenAmount(data.get("autoLimit"));
-
     const launchpadWithSigner = state.launchpad.connect(state.signer);
     const dex = project.dexConfig || normalizeDexConfig(null);
     const saleRouter = project.sale?.liquidityRouter || PANCAKE_V2_ROUTER;
@@ -2823,15 +2831,9 @@ async function saveDexAutomationConfig(event) {
     }
 
     showToast("自动机制交易已发起，请在钱包确认。");
-    const tx = await launchpadWithSigner.setDexAutomationConfig(
-      project.token,
-      autoBuybackBps,
-      autoLiquidityBps,
-      autoProcessThreshold,
-      autoProcessLimit
-    );
+    const tx = await applyFixedDexAutomation(launchpadWithSigner, project);
     await tx.wait();
-    showToast("自动机制已更新");
+    showToast("固定自动参数已更新");
     await loadProjects();
   } catch (error) {
     console.error(error);
