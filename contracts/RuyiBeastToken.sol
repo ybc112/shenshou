@@ -292,7 +292,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
     function burnFromVault(uint256 amount) external onlyVault {
         require(amount > 0, "RuyiToken: zero burn");
-        _rawUpdate(vault, address(0), amount);
+        _rawUpdate(vault, DEAD, amount);
         emit VaultBurned(amount);
     }
 
@@ -419,7 +419,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         }
 
         if (burnAmount > 0) {
-            _rawUpdate(from, address(0), burnAmount);
+            _rawUpdate(from, DEAD, burnAmount);
         }
 
         _rawUpdate(from, to, sendAmount);

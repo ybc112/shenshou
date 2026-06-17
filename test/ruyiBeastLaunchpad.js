@@ -156,7 +156,8 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(pools.reward, ethers.parseEther("2"));
     assert.equal(pools.burned, ethers.parseEther("6"));
     assert.equal(pools.dividendReserve, ethers.parseEther("2"));
-    assert.equal(await token.totalSupply(), supply - ethers.parseEther("6"));
+    assert.equal(await token.totalSupply(), supply);
+    assert.equal(await token.balanceOf("0x000000000000000000000000000000000000dEaD"), ethers.parseEther("6"));
 
     const withdrawable = await token.withdrawableDividendOf(alice.address);
     assert.ok(withdrawable > 0n);
