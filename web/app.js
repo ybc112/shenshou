@@ -116,6 +116,14 @@ const PANCAKE_V2_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
 const PANCAKE_V2_FACTORY = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73";
 const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 const NATIVE_SYMBOL = "BNB";
+const HIDDEN_PROJECT_TOKENS = new Set([
+  "0x45c4a4d46cf09a2fc037c747d0412f576ec1dddd",
+  "0x2a25f10cd6cf88b1df567811ee109984e621dddd"
+]);
+const HIDDEN_PROJECT_NAMES = new Set([
+  "\u76ae\u5361\u4e18",
+  "\u6df7\u6c8c\u517d"
+]);
 const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
 const AVATAR_MAX_SOURCE_BYTES = 1024 * 1024;
 const AVATAR_MAX_METADATA_BYTES = 220 * 1024;
@@ -650,6 +658,14 @@ function normalizeProject(project) {
   };
 }
 
+function shouldShowProject(project) {
+  const token = String(project?.token || "").trim().toLowerCase();
+  if (HIDDEN_PROJECT_TOKENS.has(token)) return false;
+
+  return ![project?.beastName, project?.tokenName, project?.symbol, project?.tokenSymbol]
+    .some((value) => HIDDEN_PROJECT_NAMES.has(String(value || "").trim().toLowerCase()));
+}
+
 function beastRune(project) {
   return BEAST_RUNES[Number(project?.beastType || 0)] || "兽";
 }
@@ -790,10 +806,12 @@ async function loadProjects() {
     const count = Number(await state.launchpad.projectCount());
     const rawProjects = count > 0 ? await state.launchpad.getProjects(0, Math.min(count, 96)) : [];
     const normalized = rawProjects.map(normalizeProject);
-    state.projects = await Promise.all(normalized.map(enrichProject));
+    state.projects = (await Promise.all(normalized.map(enrichProject))).filter(shouldShowProject);
     state.projects.sort((a, b) => b.progress - a.progress || b.id - a.id);
 
-    if (state.selectedProjectId === null && state.projects.length > 0) {
+    if (state.projects.length === 0) {
+      state.selectedProjectId = null;
+    } else if (state.selectedProjectId === null || !state.projects.some((project) => project.id === state.selectedProjectId)) {
       state.selectedProjectId = state.projects[0].id;
     }
 
