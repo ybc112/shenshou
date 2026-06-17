@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-dock-align" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-create-guard" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -233,6 +233,7 @@
                 <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
                 <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
                 <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
+                <p class="create-form-note form-wide">总供应量至少要覆盖 Mint 发给用户和自动加池预留：Mint 总份数 × 每份 Token × 2。</p>
                 <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
                 <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
                 <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
@@ -399,6 +400,7 @@
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
             <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
             <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
+            <p class="create-form-note form-wide">总供应量至少要覆盖 Mint 发给用户和自动加池预留：Mint 总份数 × 每份 Token × 2。</p>
             <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
             <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
             <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
@@ -702,6 +704,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-dock-align"></script>
+    <script src="./app.js?v=20260617-create-guard"></script>
   </body>
 </html>

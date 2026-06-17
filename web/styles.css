@@ -357,6 +357,18 @@ dd {
   gap: 12px;
 }
 
+.create-form-note {
+  margin: 0;
+  border: 1px solid rgba(217, 164, 68, 0.24);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(217, 164, 68, 0.08);
+  color: #d6c8a4;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .factory-address {
   min-width: 0;
   border: 1px solid rgba(217, 164, 68, 0.22);

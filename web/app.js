@@ -102,6 +102,8 @@ const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
+const DEFAULT_SUPPLY = 1_000_000_000n * TOKEN_UNIT;
+const CREATE_GAS_BUFFER = 3_000_000_000_000_000n;
 const PLATFORM_TAX_SHARE_BPS = 2_000n;
 const FIXED_DEX_AUTO_BUYBACK_BPS = 200n;
 const FIXED_DEX_AUTO_LIQUIDITY_BPS = 50n;
@@ -366,6 +368,36 @@ function parseShareCount(value) {
     throw new Error("Mint 份数必须是整数");
   }
   return BigInt(raw);
+}
+
+function validateLaunchSaleSupply({ initialSupply, mintCount, tokensPerMint, symbol }) {
+  if (mintCount === ZERO || tokensPerMint === ZERO) return;
+
+  const effectiveSupply = initialSupply === ZERO ? DEFAULT_SUPPLY : initialSupply;
+  const userMintSupply = mintCount * tokensPerMint;
+  const requiredSupply = userMintSupply * 2n;
+
+  if (requiredSupply > effectiveSupply) {
+    throw new Error(
+      `总供应量不够：Mint ${formatShareCount(mintCount)} × 每份 ${formatToken(tokensPerMint, symbol)}，` +
+      `还要预留同等数量自动加池，所以总供应量至少要 ${formatToken(requiredSupply, symbol)}。` +
+      `当前是 ${formatToken(effectiveSupply, symbol)}，请提高总供应量，或降低 Mint 总份数/每份 Token。`
+    );
+  }
+}
+
+async function validateCreateBalance() {
+  if (!state.provider || !state.account) return;
+
+  const balance = await state.provider.getBalance(state.account);
+  const minimum = (state.creationFee || ZERO) + CREATE_GAS_BUFFER;
+  if (balance < minimum) {
+    throw new Error(
+      `钱包 BNB 不够：创建费是 ${formatToken(state.creationFee || ZERO)} ${NATIVE_SYMBOL}，` +
+      `还要预留约 ${formatToken(CREATE_GAS_BUFFER)} ${NATIVE_SYMBOL} Gas。` +
+      `当前余额 ${formatToken(balance)} ${NATIVE_SYMBOL}。`
+    );
+  }
 }
 
 function readRequiredFormString(data, name, label) {
@@ -2212,6 +2244,12 @@ async function createBeast(event) {
       if (maxMintPerWallet > mintCount) {
         throw new Error("单钱包上限不能超过 Mint 总份数");
       }
+      validateLaunchSaleSupply({
+        initialSupply,
+        mintCount,
+        tokensPerMint,
+        symbol: params.tokenSymbol
+      });
       params.tokensPerMint = tokensPerMint;
       params.mintPrice = mintPrice;
       params.maxMintPerWallet = maxMintPerWallet;
@@ -2225,6 +2263,7 @@ async function createBeast(event) {
       restoreScrollPosition(submitScrollY);
       return;
     }
+    await validateCreateBalance();
     restoreScrollPosition(submitScrollY);
 
     const avatarDataUrl = avatarByForm.get(form) || "";
@@ -2878,9 +2917,45 @@ async function ensureWritable() {
 }
 
 function shortError(error) {
-  const message = error?.shortMessage || error?.reason || error?.message?.split("\n")[0] || "";
+  const rawMessage = [
+    error?.shortMessage,
+    error?.reason,
+    error?.info?.error?.message,
+    error?.error?.message,
+    error?.data?.message,
+    error?.message
+  ].filter(Boolean).join(" | ");
+  const message = rawMessage.split("\n")[0] || "";
+
+  if (message.includes("sale exceeds supply")) {
+    return "总供应量不够。Mint 发射会把一份 Token 给用户，还要预留同等数量自动加池，请提高总供应量，或降低 Mint 总份数/每份 Token。";
+  }
+  if (message.includes("insufficient fee")) {
+    return `创建费不足，请确认钱包支付 ${formatToken(state.creationFee || ZERO)} ${NATIVE_SYMBOL} 创建费，并预留 Gas。`;
+  }
+  if (message.includes("insufficient funds") || message.includes("insufficient balance")) {
+    return "钱包 BNB 余额不足，请补足创建费和 Gas 后再试。";
+  }
+  if (message.includes("zero whitelist limit")) {
+    return "开启白名单 Mint 时必须填写白名单份数。";
+  }
+  if (message.includes("bad whitelist limit")) {
+    return "白名单份数不能超过 Mint 总份数。";
+  }
+  if (message.includes("bad wallet limit")) {
+    return "单钱包最多份数不能超过 Mint 总份数。";
+  }
+  if (message.includes("zero tokens per mint")) {
+    return "开启 Mint 发射时必须填写每份可得 Token。";
+  }
+  if (message.includes("zero mint price")) {
+    return "开启 Mint 发射时必须填写每份价格。";
+  }
+  if (message.includes("invalid deadline")) {
+    return "Mint 截止时间不能早于当前时间。";
+  }
   if (message.includes("missing revert data") || message.includes("execution reverted")) {
-    return "交易条件不满足，请检查数量、剩余份额、钱包上限和钱包余额";
+    return "交易条件不满足，请重点检查总供应量、Mint 总份数、每份 Token、白名单份数、钱包上限和 BNB 余额。";
   }
   if (error?.code === "BAD_DATA" || message.includes("could not decode result data")) {
     return "当前地址不是神兽发射台合约，请重新部署或填写正确地址";
