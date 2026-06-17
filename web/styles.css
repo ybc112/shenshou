@@ -477,6 +477,7 @@ input[type="file"]::file-selector-button {
 }
 
 .avatar-drop {
+  position: relative;
   display: grid;
   grid-template-columns: 74px minmax(0, 1fr);
   align-items: center;
@@ -490,6 +491,18 @@ input[type="file"]::file-selector-button {
     rgba(7, 9, 17, 0.38);
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.avatar-drop input[type="file"],
+.avatar-actions label input[type="file"] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .avatar-drop:hover,
@@ -4003,6 +4016,11 @@ body {
   .topbar {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .toast {
+    bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    width: min(340px, calc(100vw - 32px));
   }
 
   .sale-section-menu {
