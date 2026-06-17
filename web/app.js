@@ -122,7 +122,10 @@ const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 const NATIVE_SYMBOL = "BNB";
 const HIDDEN_PROJECT_TOKENS = new Set([
   "0x45c4a4d46cf09a2fc037c747d0412f576ec1dddd",
-  "0x2a25f10cd6cf88b1df567811ee109984e621dddd"
+  "0x2a25f10cd6cf88b1df567811ee109984e621dddd",
+  "0x3b76071d2670df31dc7626b180f4634dcd0bdddd",
+  "0x6e173c1097b92bd50a6606718c89a2b20f6ddddd",
+  "0xd5b21b19be2ffdf78d72c66b3e7c165334b9dddd"
 ]);
 const HIDDEN_PROJECT_NAMES = new Set([
   "\u76ae\u5361\u4e18",
