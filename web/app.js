@@ -1,4 +1,5 @@
 const ethers = window.ethers;
+const BACKEND_URL = String(window.RUYI_CONFIG?.backendUrl || "").trim();
 
 const LAUNCHPAD_ABI = [
   "function owner() view returns (address)",
@@ -30,7 +31,6 @@ const TOKEN_ABI = [
   "function auraThreshold() view returns (uint256)",
   "function tradingEnabled() view returns (bool)",
   "function totalFeeBps(bool sell) view returns (uint256)",
-  "function PLATFORM_TAX_SHARE_BPS() view returns (uint16)",
   "function withdrawableDividendOf(address account) view returns (uint256)",
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 amount) returns (bool)",
@@ -85,7 +85,7 @@ const SALE_VAULT_ABI = [
 const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
-const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "mint", "platform", "data", "help"];
+const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "data", "help"];
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
@@ -93,7 +93,6 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 const PANCAKE_V2_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
 const NATIVE_SYMBOL = "BNB";
-const DEFAULT_PLATFORM_TAX_SHARE_BPS = 2000n;
 const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
 const AVATAR_MAX_SOURCE_BYTES = 1024 * 1024;
 const AVATAR_MAX_METADATA_BYTES = 220 * 1024;
@@ -115,8 +114,7 @@ const state = {
   selectedProjectId: null,
   stageFilter: "all",
   creationFee: ZERO,
-  activePage: "home",
-  platformTaxShareBps: DEFAULT_PLATFORM_TAX_SHARE_BPS
+  activePage: "home"
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -490,10 +488,6 @@ async function loadProjects() {
     state.projects = await Promise.all(normalized.map(enrichProject));
     state.projects.sort((a, b) => b.progress - a.progress || b.id - a.id);
 
-    if (state.projects[0]) {
-      state.platformTaxShareBps = state.projects[0].platformTaxShareBps;
-    }
-
     if (state.selectedProjectId === null && state.projects.length > 0) {
       state.selectedProjectId = state.projects[0].id;
     }
@@ -522,7 +516,6 @@ async function enrichProject(project) {
     pools,
     buyTaxBps,
     sellTaxBps,
-    platformTaxShareBps,
     evolutionConfig,
     rewardConfig,
     dexConfig,
@@ -537,7 +530,6 @@ async function enrichProject(project) {
     state.vault.poolBalances(project.token).catch(() => null),
     token.totalFeeBps(false).catch(() => 300n),
     token.totalFeeBps(true).catch(() => 500n),
-    token.PLATFORM_TAX_SHARE_BPS().catch(() => DEFAULT_PLATFORM_TAX_SHARE_BPS),
     state.vault.evolutionPayoutConfigs(project.token).catch(() => null),
     state.vault.rewardConfigs(project.token).catch(() => null),
     state.vault.dexConfigs(project.token).catch(() => null),
@@ -561,7 +553,6 @@ async function enrichProject(project) {
     pools,
     buyTaxBps: BigInt(buyTaxBps),
     sellTaxBps: BigInt(sellTaxBps),
-    platformTaxShareBps: BigInt(platformTaxShareBps),
     evolutionConfig: normalizeEvolutionConfig(evolutionConfig),
     rewardConfig: normalizeRewardConfig(rewardConfig),
     dexConfig: normalizeDexConfig(dexConfig),
@@ -789,7 +780,7 @@ function renderProjects() {
   const projects = filteredProjects();
   if (!state.launchpadAddress || !ethers.isAddress(state.launchpadAddress)) {
     grids.forEach((grid) => {
-      grid.innerHTML = emptyMarkup("plug-zap", "等待合约地址", "填写并保存 Launchpad 地址后，神兽大厅会展示真实链上项目。");
+      grid.innerHTML = emptyMarkup("plug-zap", "等待合约地址", "后台配置 Launchpad 地址后，神兽大厅会展示真实链上项目。");
     });
     refreshIcons();
     return;
@@ -896,7 +887,6 @@ function renderSelectedProject(project) {
   }
 
   const pools = normalizePools(project.pools);
-  state.platformTaxShareBps = project.platformTaxShareBps;
   setText("[data-selected-name]", `${project.beastName} (${project.symbol})`);
   setText("[data-selected-token]", `Token: ${shortAddress(project.token)}`);
   setText("[data-selected-stage]", STAGE_NAMES[project.stage] || "未知");
@@ -942,7 +932,7 @@ function renderSalePanel(project) {
   setText("[data-sale-limit]", hasSale && sale.maxMintPerWallet > ZERO ? formatToken(sale.maxMintPerWallet, project.symbol) : hasSale ? "不限" : "--");
   setText("[data-sale-deadline]", hasSale ? formatDateTime(sale.saleDeadline) : "--");
   setText("[data-sale-raised]", hasSale ? `${formatToken(sale.nativeRaised)} ${NATIVE_SYMBOL}` : "--");
-  setText("[data-sale-receiver]", hasSale ? shortAddress(sale.liquidityReceiver) : "--");
+  setText("[data-sale-receiver]", hasSale ? "黑洞锁定" : "--");
   setText("[data-sale-router]", hasSale ? shortAddress(sale.liquidityRouter) : "--");
   setText("[data-sale-liquidity-ratio]", hasSale ? `${formatBps(sale.liquidityTokenBps)} 加池` : "--");
   setText("[data-sale-whitelist-status]", hasSale ? whitelistStatusText(sale) : "--");
@@ -965,7 +955,6 @@ function renderSalePanel(project) {
     form.dataset.enabled = canConfigureLiquidity ? "true" : "false";
     const routerInput = form.querySelector("input[name='router']");
     const bpsInput = form.querySelector("input[name='liquidityTokenBps']");
-    const receiverInput = form.querySelector("input[name='liquidityReceiver']");
     const button = form.querySelector("button");
     if (routerInput) {
       routerInput.disabled = !canConfigureLiquidity;
@@ -974,10 +963,6 @@ function renderSalePanel(project) {
     if (bpsInput) {
       bpsInput.disabled = !canConfigureLiquidity;
       bpsInput.value = hasSale ? String(sale.liquidityTokenBps) : "10000";
-    }
-    if (receiverInput) {
-      receiverInput.disabled = !canConfigureLiquidity;
-      receiverInput.value = hasSale && sale.liquidityReceiver !== DEAD_ADDRESS ? sale.liquidityReceiver : "";
     }
     if (button) button.disabled = !canConfigureLiquidity;
   });
@@ -1062,7 +1047,7 @@ function renderAdminTools(project) {
             <span>进化机制</span>
             <strong>${ownerBadge}</strong>
           </div>
-          <small>灵气值达到进化阈值后，触发进化会按这里的比例销毁进化池，并释放奖励池给持币分红。</small>
+          <small>灵气值达到进化条件后，触发进化会按这里的比例销毁进化池，并释放奖励池给持币分红。</small>
         </div>
         <form class="admin-form" data-evolution-config-form>
           <label><span>进化池销毁 %</span><input name="burnBps" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(evolution.burnBps)}" ${disabled} /></label>
@@ -1107,7 +1092,6 @@ function renderAdminTools(project) {
           <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(dex.router)}" placeholder="DEX Router" ${disabled} /></label>
           <label><span>交易对地址</span><input name="pair" type="text" value="${addressInputValue(dex.pair)}" placeholder="Pair 地址" ${disabled} /></label>
           <label><span>配对 Token</span><input name="pairedToken" type="text" value="${addressInputValue(dex.pairedToken)}" placeholder="原生币交易对可留空" ${disabled} /></label>
-          <label><span>LP 接收地址</span><input name="liquidityReceiver" type="text" value="${addressInputValue(dex.liquidityReceiver)}" placeholder="LP 接收钱包" ${disabled} /></label>
           <label><span>回购接收地址</span><input name="buybackRecipient" type="text" value="${addressInputValue(dex.buybackRecipient)}" placeholder="销毁回购可留空" ${disabled} /></label>
           <label class="check-field"><input name="nativePair" type="checkbox" ${dex.nativePair ? "checked" : ""} ${disabled} /><span>原生币交易对</span></label>
           <label class="check-field"><input name="burnBuyback" type="checkbox" ${dex.burnBuyback ? "checked" : ""} ${disabled} /><span>回购后销毁</span></label>
@@ -1426,16 +1410,14 @@ async function compressRasterAvatar(file) {
   return canvas.toDataURL("image/webp", 0.82);
 }
 
-function buildProjectMetadataURI(form, params) {
+function buildProjectMetadataURI(form, params, imageUrl) {
   const metadata = {
     name: trimMetadataText(params.beastName),
     tokenName: trimMetadataText(params.tokenName),
     symbol: trimMetadataText(params.tokenSymbol, 32),
-    beastType: params.beastType,
-    avatar: avatarByForm.get(form) || "",
-    attributes: [
-      { trait_type: "神兽类型", value: BEAST_TYPE_NAMES[params.beastType] || "自定义" }
-    ]
+    image: imageUrl || "",
+    avatar: imageUrl || "",
+    attributes: []
   };
 
   const output = JSON.stringify(metadata);
@@ -1444,6 +1426,28 @@ function buildProjectMetadataURI(form, params) {
   }
 
   return output;
+}
+
+async function uploadImage(dataUrl) {
+  if (!dataUrl || !BACKEND_URL) return "";
+  try {
+    showToast("正在上传头像...");
+    const response = await fetch(`${BACKEND_URL}/api/assets`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dataUrl }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || "上传失败");
+    }
+    const result = await response.json();
+    return result.url || "";
+  } catch (error) {
+    console.error("Upload failed:", error);
+    showToast(`头像上传失败：${error.message || error}`, "error");
+    return "";
+  }
 }
 
 async function updateUploadPreview(input) {
@@ -1531,7 +1535,7 @@ async function createBeast(event) {
   const form = event.currentTarget;
   const data = new FormData(form);
   const initialSupply = parseTokenAmount(data.get("initialSupply"));
-  const auraThreshold = parseTokenAmount(data.get("auraThreshold"));
+  const auraThreshold = ZERO;
   const saleSupply = parseTokenAmount(data.get("saleSupply"));
   const saleEnabled = saleSupply > ZERO;
   let mintPrice = ZERO;
@@ -1548,7 +1552,7 @@ async function createBeast(event) {
     metadataURI: "",
     initialSupply,
     auraThreshold,
-    beastType: Number(data.get("beastType")),
+    beastType: 0,
     saleSupply,
     mintPrice,
     maxMintPerWallet,
@@ -1582,7 +1586,9 @@ async function createBeast(event) {
       params.fundsReceiver = fundsReceiver;
     }
 
-    params.metadataURI = buildProjectMetadataURI(form, params);
+    const avatarDataUrl = avatarByForm.get(form) || "";
+    const imageUrl = await uploadImage(avatarDataUrl);
+    params.metadataURI = buildProjectMetadataURI(form, params, imageUrl);
     showToast("创建交易已发起，请在钱包确认。");
     const launchpadWithSigner = state.launchpad.connect(state.signer);
     const tx = await launchpadWithSigner.createBeast(
@@ -1821,7 +1827,7 @@ async function saveMintLiquidityConfig(event) {
   try {
     const data = new FormData(event.currentTarget);
     const router = normalizeAddressInput(data.get("router"), PANCAKE_V2_ROUTER);
-    const liquidityReceiver = normalizeAddressInput(data.get("liquidityReceiver"), ZERO_ADDRESS);
+    const liquidityReceiver = DEAD_ADDRESS;
     const liquidityTokenBps = Number(data.get("liquidityTokenBps") || 10000);
     if (!Number.isInteger(liquidityTokenBps) || liquidityTokenBps <= 0 || liquidityTokenBps > 10000) {
       throw new Error("加池比例需要在 1 到 10000 之间");
@@ -2061,12 +2067,11 @@ async function saveDexConfig(event) {
     const router = normalizeAddressInput(data.get("router"), ZERO_ADDRESS);
     const pairedToken = normalizeAddressInput(data.get("pairedToken"), ZERO_ADDRESS);
     const pair = normalizeAddressInput(data.get("pair"), ZERO_ADDRESS);
-    const liquidityReceiver = normalizeAddressInput(data.get("liquidityReceiver"), ZERO_ADDRESS);
+    const liquidityReceiver = DEAD_ADDRESS;
     const buybackRecipient = normalizeAddressInput(data.get("buybackRecipient"), ZERO_ADDRESS);
 
     if (enabled) {
       if (sameAddress(router, ZERO_ADDRESS)) throw new Error("启用 DEX 时需要填写 Router 地址");
-      if (sameAddress(liquidityReceiver, ZERO_ADDRESS)) throw new Error("启用 DEX 时需要填写 LP 接收地址");
       if (!nativePair && sameAddress(pairedToken, ZERO_ADDRESS)) throw new Error("非原生币交易对需要填写配对 Token");
       if (!burnBuyback && sameAddress(buybackRecipient, ZERO_ADDRESS)) throw new Error("非销毁回购需要填写回购接收地址");
     }
@@ -2145,7 +2150,7 @@ async function processAutoDex() {
 
 async function ensureWritable() {
   if (!state.launchpad || !state.launchpadAddress) {
-    showToast("请先配置 Launchpad 合约地址。", "error");
+    showToast("后台暂未配置 Launchpad 合约地址。", "error");
     return false;
   }
 
@@ -2209,10 +2214,6 @@ async function copyTokenAddress() {
   showToast(copied ? "Token 合约地址已复制" : "复制失败，请手动长按合约地址复制", copied ? "success" : "error");
 }
 
-function showOfficialMintPlaceholder() {
-  showToast("官方 Mint 板块已预留，接入 Mint 合约地址和 ABI 后即可开放。");
-}
-
 function showPlatformTokenPlaceholder() {
   showToast("平台币入口已预留，等平台币合约部署后接入余额和操作。");
 }
@@ -2273,13 +2274,6 @@ function bindEvents() {
 
   $$("[data-sale-whitelist-form]").forEach((form) => {
     form.addEventListener("submit", saveWhitelistConfig);
-  });
-
-  $$("[data-official-mint-form]").forEach((form) => {
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      showOfficialMintPlaceholder();
-    });
   });
 
   $$("[data-sale-owner-form]").forEach((form) => {

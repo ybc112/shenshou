@@ -13,3 +13,4 @@ web/deployments/*.json
 !web/deployments/latest.json
 output/playwright/
 output/hardhat/
+work/

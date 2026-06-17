@@ -4,8 +4,39 @@ const path = require("node:path");
 
 const TOKEN_DEPLOYER_ADDRESS =
   process.env.TOKEN_DEPLOYER_ADDRESS || "0x144648A3392dA2055eb19891e78A070e767357f7";
+const DEFAULT_PLATFORM_TREASURY = "0xdE24f90b7802E32982E1af679449bA7FD6c3501D";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function readExistingFrontendConfig(webDir) {
+  const configPath = path.join(webDir, "config.js");
+  if (!fs.existsSync(configPath)) return {};
+
+  const content = fs.readFileSync(configPath, "utf8");
+  const match = content.match(/window\.RUYI_CONFIG\s*=\s*(\{[\s\S]*?\});?\s*$/);
+  if (!match) return {};
+
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return {};
+  }
+}
+
+function writeFrontendConfig(webDir, deployment) {
+  const existing = readExistingFrontendConfig(webDir);
+  const config = {
+    ...existing,
+    launchpadAddress: deployment.launchpadAddress,
+    rpcUrl: process.env.FRONTEND_RPC_URL ?? existing.rpcUrl ?? "",
+    chainId: deployment.chainId
+  };
+
+  fs.writeFileSync(
+    path.join(webDir, "config.js"),
+    `window.RUYI_CONFIG = ${JSON.stringify(config, null, 2)};\n`
+  );
+}
 
 function artifact(name) {
   return JSON.parse(
@@ -89,7 +120,7 @@ async function main() {
     throw new Error(`Token deployer has no code: ${tokenDeployerAddress}`);
   }
 
-  const treasury = process.env.TREASURY || process.env.FEE_RECIPIENT || wallet.address;
+  const treasury = process.env.TREASURY || DEFAULT_PLATFORM_TREASURY;
   const creationFee =
     process.env.CREATION_FEE_WEI ||
     (process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : "0");
@@ -128,7 +159,7 @@ async function main() {
     platformTreasury: treasury,
     creationFee,
     transactions: {
-      tokenDeployer: "0xfc7f15cad73ee8400793f713fcd2adcbb20bb6e63036a57da8dbec3a3fe64deb",
+      tokenDeployer: process.env.TOKEN_DEPLOYER_TX_HASH || "0xfc7f15cad73ee8400793f713fcd2adcbb20bb6e63036a57da8dbec3a3fe64deb",
       saleVaultDeployer: saleVaultDeployerDeploy.txHash,
       launchpad: launchpadDeploy.txHash
     },
@@ -139,18 +170,7 @@ async function main() {
   const deploymentsDir = path.join(webDir, "deployments");
   fs.mkdirSync(deploymentsDir, { recursive: true });
   fs.writeFileSync(path.join(deploymentsDir, "latest.json"), JSON.stringify(deployment, null, 2));
-  fs.writeFileSync(
-    path.join(webDir, "config.js"),
-    `window.RUYI_CONFIG = ${JSON.stringify(
-      {
-        launchpadAddress: deployment.launchpadAddress,
-        rpcUrl: process.env.FRONTEND_RPC_URL || "",
-        chainId: deployment.chainId
-      },
-      null,
-      2
-    )};\n`
-  );
+  writeFrontendConfig(webDir, deployment);
 
   console.log("Deployment complete");
   console.log(`RuyiBeastTokenDeployer: ${deployment.tokenDeployerAddress}`);

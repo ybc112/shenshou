@@ -14,13 +14,15 @@ function isRetryableExplorerError(message) {
   );
 }
 
-async function verifyContract(address, constructorArguments = []) {
+async function verifyContract(address, constructorArguments = [], contract = undefined) {
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
-      await hre.run("verify:verify", {
+      const taskArgs = {
         address,
         constructorArguments
-      });
+      };
+      if (contract) taskArgs.contract = contract;
+      await hre.run("verify:verify", taskArgs);
       console.log(`Verified: ${address}`);
       return;
     } catch (error) {
@@ -47,15 +49,23 @@ async function main() {
 
   const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
 
-  await verifyContract(deployment.tokenDeployerAddress);
-  await verifyContract(deployment.saleVaultDeployerAddress);
+  await verifyContract(
+    deployment.tokenDeployerAddress,
+    [],
+    "contracts/RuyiBeastDeployers.sol:RuyiBeastTokenDeployer"
+  );
+  await verifyContract(
+    deployment.saleVaultDeployerAddress,
+    [],
+    "contracts/RuyiBeastDeployers.sol:RuyiBeastSaleVaultDeployer"
+  );
   await verifyContract(deployment.launchpadAddress, [
     deployment.platformTreasury,
     deployment.creationFee,
     deployment.tokenDeployerAddress,
     deployment.saleVaultDeployerAddress
-  ]);
-  await verifyContract(deployment.vaultAddress, [deployment.launchpadAddress]);
+  ], "contracts/RuyiBeastLaunchpad.sol:RuyiBeastLaunchpad");
+  await verifyContract(deployment.vaultAddress, [deployment.launchpadAddress], "contracts/RuyiBeastVault.sol:RuyiBeastVault");
 }
 
 main().catch((error) => {

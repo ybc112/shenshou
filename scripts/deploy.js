@@ -2,9 +2,41 @@ const { ethers } = require("hardhat");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const DEFAULT_PLATFORM_TREASURY = "0xdE24f90b7802E32982E1af679449bA7FD6c3501D";
+
+function readExistingFrontendConfig(webDir) {
+  const configPath = path.join(webDir, "config.js");
+  if (!fs.existsSync(configPath)) return {};
+
+  const content = fs.readFileSync(configPath, "utf8");
+  const match = content.match(/window\.RUYI_CONFIG\s*=\s*(\{[\s\S]*?\});?\s*$/);
+  if (!match) return {};
+
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return {};
+  }
+}
+
+function writeFrontendConfig(webDir, deployment) {
+  const existing = readExistingFrontendConfig(webDir);
+  const config = {
+    ...existing,
+    launchpadAddress: deployment.launchpadAddress,
+    rpcUrl: process.env.FRONTEND_RPC_URL ?? existing.rpcUrl ?? "",
+    chainId: deployment.chainId
+  };
+
+  fs.writeFileSync(
+    path.join(webDir, "config.js"),
+    `window.RUYI_CONFIG = ${JSON.stringify(config, null, 2)};\n`
+  );
+}
+
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const treasury = process.env.TREASURY || process.env.FEE_RECIPIENT || deployer.address;
+  const treasury = process.env.TREASURY || DEFAULT_PLATFORM_TREASURY;
   const creationFee = process.env.CREATION_FEE_WEI || (
     process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : "0"
   );
@@ -50,18 +82,7 @@ async function main() {
   const deploymentsDir = path.join(webDir, "deployments");
   fs.mkdirSync(deploymentsDir, { recursive: true });
   fs.writeFileSync(path.join(deploymentsDir, "latest.json"), JSON.stringify(deployment, null, 2));
-  fs.writeFileSync(
-    path.join(webDir, "config.js"),
-    `window.RUYI_CONFIG = ${JSON.stringify(
-      {
-        launchpadAddress: deployment.launchpadAddress,
-        rpcUrl: process.env.FRONTEND_RPC_URL || "",
-        chainId: deployment.chainId
-      },
-      null,
-      2
-    )};\n`
-  );
+  writeFrontendConfig(webDir, deployment);
 
   console.log("Frontend config:", path.join(webDir, "config.js"));
 }

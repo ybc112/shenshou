@@ -1,5 +1,6 @@
 window.RUYI_CONFIG = {
-  "launchpadAddress": "0xC3661dEBBcce148765b7C242730344f8e09269a5",
+  "launchpadAddress": "0xaFd9d9EE6D2aB7A4DE6A9F2907CcbE4f75909Df6",
   "rpcUrl": "",
-  "chainId": 56
+  "chainId": 56,
+  "backendUrl": "http://154.12.118.163:8787"
 };

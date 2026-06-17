@@ -1,17 +1,17 @@
 {
   "chainId": 56,
   "network": "bsc",
-  "tokenDeployerAddress": "0x144648A3392dA2055eb19891e78A070e767357f7",
-  "saleVaultDeployerAddress": "0x7Bce38B9Af4822A04E4D3224067a99B4585b91Ff",
-  "launchpadAddress": "0xC3661dEBBcce148765b7C242730344f8e09269a5",
-  "vaultAddress": "0xb7A0563Cd08bdd2fb9783A7A11F1daab4ea74186",
+  "tokenDeployerAddress": "0xD25357afeB8033Df522c80728BBAFCD5B9584676",
+  "saleVaultDeployerAddress": "0x4AB3c303b37c5d88D0CD36eBdDa8E462d8Fb67c4",
+  "launchpadAddress": "0xaFd9d9EE6D2aB7A4DE6A9F2907CcbE4f75909Df6",
+  "vaultAddress": "0xD9a131cd7C62b31a637E9F19732b95cBF6e11245",
   "platformTreasury": "0xdE24f90b7802E32982E1af679449bA7FD6c3501D",
   "creationFee": "5000000000000000",
   "transactions": {
-    "tokenDeployer": "0xfc7f15cad73ee8400793f713fcd2adcbb20bb6e63036a57da8dbec3a3fe64deb",
-    "saleVaultDeployer": "0x90c128faa8b52da1eedfe46d10521f1741456401978e28d81a5f5c46b8c350dc",
-    "launchpad": "0x36eef3e50e9ae9e12b0825caea6ad4006de8b800d04ee76ddeca2935f48c05f9",
-    "setPlatformTreasury": "0x21470a0fb5c92b83fff4977940fea13aa8b199dfc1198db69c847c40c215a123"
+    "tokenDeployer": "0xb09efdc435d05bf5e9da3f1d7204b6a2ace4f61100509530ef745117aef12f54",
+    "saleVaultDeployer": "0xa213c73b1b853cb20eae67881154560e9377451e2f426d62e4c70e23d70db785",
+    "launchpad": "0x90fa24ff5423f81d8ba8fedcba2007906b2af6f9b587b86c8c6f750f29478391",
+    "setPlatformTreasury": "0xe96b6163e04b76bb4ad2cd8cfc35bf2a1bf36b317b1b8bbff4eb3293e12287a4"
   },
-  "deployedAt": "2026-06-16T03:05:57.034Z"
+  "deployedAt": "2026-06-17T04:25:43.871Z"
 }

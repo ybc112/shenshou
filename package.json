@@ -4,6 +4,7 @@
   "private": true,
   "description": "Ruyi Beast Launchpad smart contracts",
   "scripts": {
+    "start": "node server/backend.mjs",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "clean": "hardhat clean",

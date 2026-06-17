@@ -71,7 +71,7 @@
           <div class="factory-copy">
             <span>OPEN FACTORY</span>
             <strong>工厂合约公开透明</strong>
-            <p data-connection-status>请配置发射台合约地址，或先部署合约生成地址。</p>
+            <p data-connection-status>等待后台发射台合约配置完成。</p>
           </div>
           <div class="factory-points">
             <div><i data-lucide="badge-check"></i><span>工厂开源</span></div>
@@ -128,7 +128,7 @@
                 <article class="empty-state">
                   <i data-lucide="loader-circle"></i>
                   <strong>等待链上数据</strong>
-                  <p>配置 Launchpad 地址后，这里会展示真实创建的神兽项目。</p>
+                  <p>后台合约配置完成后，这里会展示真实创建的神兽项目。</p>
                 </article>
               </div>
             </section>
@@ -167,7 +167,7 @@
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
                   <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
-                  <div><span>LP 接收</span><strong data-sale-receiver>--</strong></div>
+                  <div><span>LP 锁定</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
                   <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
@@ -181,7 +181,6 @@
                 <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
                   <label><span>Pancake Router</span><input name="router" type="text" placeholder="Pancake V2 Router" /></label>
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
-                  <label><span>LP 接收</span><input name="liquidityReceiver" type="text" placeholder="留空默认黑洞" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
                 <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
@@ -216,21 +215,7 @@
                 <label><span>神兽名称</span><input name="beastName" type="text" placeholder="输入神兽名称" required /></label>
                 <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
                 <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
-                <label>
-                  <span>神兽类型</span>
-                  <select name="beastType">
-                    <option value="0">麒麟</option>
-                    <option value="1">凤凰</option>
-                    <option value="2">貔貅</option>
-                    <option value="3">九尾狐</option>
-                    <option value="4">青龙</option>
-                    <option value="5">白虎</option>
-                    <option value="6">玄龟</option>
-                    <option value="7">自定义</option>
-                  </select>
-                </label>
                 <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
-                <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="留空默认总供应量的 0.1%" /></label>
                 <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
                 <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
@@ -374,21 +359,7 @@
             <label><span>神兽名称</span><input name="beastName" type="text" placeholder="输入神兽名称" required /></label>
             <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
             <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
-            <label>
-              <span>神兽类型</span>
-              <select name="beastType">
-                <option value="0">麒麟</option>
-                <option value="1">凤凰</option>
-                <option value="2">貔貅</option>
-                <option value="3">九尾狐</option>
-                <option value="4">青龙</option>
-                <option value="5">白虎</option>
-                <option value="6">玄龟</option>
-                <option value="7">自定义</option>
-              </select>
-            </label>
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
-            <label><span>进化阈值</span><input name="auraThreshold" type="number" min="1" step="1" placeholder="留空默认总供应量的 0.1%" /></label>
                 <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
                 <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
@@ -482,7 +453,7 @@
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
                   <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
-                  <div><span>LP 接收</span><strong data-sale-receiver>--</strong></div>
+                  <div><span>LP 锁定</span><strong data-sale-receiver>--</strong></div>
                   <div><span>Pancake Router</span><strong data-sale-router>--</strong></div>
                   <div><span>加池比例</span><strong data-sale-liquidity-ratio>--</strong></div>
                   <div><span>白名单状态</span><strong data-sale-whitelist-status>--</strong></div>
@@ -496,7 +467,6 @@
                 <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
                   <label><span>Pancake Router</span><input name="router" type="text" placeholder="Pancake V2 Router" /></label>
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
-                  <label><span>LP 接收</span><input name="liquidityReceiver" type="text" placeholder="留空默认黑洞" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
                 <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
@@ -571,43 +541,6 @@
           <div class="mini-card-grid" data-reward-projects></div>
         </section>
 
-        <section class="page-view page-panel" data-page="mint">
-          <div class="page-header">
-            <div>
-              <span>OFFICIAL MINT</span>
-              <h1>官方 Mint</h1>
-              <p>这里单独预留平台神兽 Mint 入口，合约接入后用户可直接在这里 Mint。</p>
-            </div>
-            <button class="wallet-button" type="button" data-action="connect-wallet"><i data-lucide="wallet"></i><span data-wallet-label>连接钱包</span></button>
-          </div>
-          <section class="mint-panel mint-page-panel" data-official-mint-panel>
-            <div class="mint-head">
-              <div>
-                <span>Mint 状态</span>
-                <strong>预留接入位</strong>
-              </div>
-              <small>合约接入后会显示价格、数量、进度和开放状态。</small>
-            </div>
-            <form class="mint-form" data-official-mint-form>
-              <label><span>Mint 合约</span><input name="mintContract" type="text" placeholder="待接入 0x..." disabled /></label>
-              <label><span>Mint 数量</span><input name="mintAmount" type="number" min="1" step="1" value="1" disabled /></label>
-              <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>Mint 神兽</span></button>
-            </form>
-          </section>
-          <section class="help-grid mint-help-grid">
-            <article class="help-card">
-              <span>接入后显示</span>
-              <h2>合约信息</h2>
-              <p>Mint 合约地址、Mint 价格、总量、已 Mint 数量、单钱包限制和开放状态都会显示在这里。</p>
-            </article>
-            <article class="help-card">
-              <span>用户操作</span>
-              <h2>一键 Mint</h2>
-              <p>用户连接钱包后输入数量，确认钱包交易即可完成 Mint，不再混在神兽详情页里。</p>
-            </article>
-          </section>
-        </section>
-
         <section class="page-view page-panel" data-page="data">
           <div class="page-header">
             <div>
@@ -663,7 +596,7 @@
               <div>
                 <span>平台生态币</span>
                 <h2>Ruyi Platform Token</h2>
-                <p>合约地址、符号、精度和总量待接入。上线后这里展示平台币状态，并作为用户进入平台币 mint/领取入口。</p>
+                <p>合约地址、符号、精度和总量待接入。上线后这里仅展示平台币状态。</p>
               </div>
             </section>
             <section class="platform-token-card compact">
@@ -691,7 +624,7 @@
             <article class="help-card">
               <i data-lucide="sparkles"></i>
               <h2>怎样创建神兽</h2>
-              <p>填写神兽名称、Token 信息、供应量和进化阈值，添加神兽图片后确认钱包交易。需要 Mint 发射时，再填写 Mint 池数量、单价和截止时间。</p>
+              <p>填写神兽名称、Token 信息和供应量，添加神兽图片后确认钱包交易。需要 Mint 发射时，再填写 Mint 池数量、单价和截止时间。</p>
             </article>
             <article class="help-card">
               <i data-lucide="ticket"></i>
@@ -728,6 +661,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260616-mint"></script>
+    <script src="./app.js?v=20260617-deploy"></script>
   </body>
 </html>
