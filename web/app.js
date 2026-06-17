@@ -1464,7 +1464,6 @@ function renderAdminTools(project) {
       : state.account
         ? `当前钱包不是这个项目的创建地址，请切换到项目方 ${creatorWallet} 或平台管理员 ${ownerWallet} 后再设置。`
         : `请先连接项目方 ${creatorWallet} 或平台管理员 ${ownerWallet}。`;
-    const dexStatus = dex.enabled ? "已启用" : "未启用";
     const salePair = project.sale?.launchPair || ZERO_ADDRESS;
     const salePairLabel = salePair && !sameAddress(salePair, ZERO_ADDRESS)
       ? `${shortAddress(salePair)}${project.sale?.launchPairMarked ? "" : " 未标记"}`
@@ -1476,9 +1475,13 @@ function renderAdminTools(project) {
         ? project.sale.liquidityRouter
         : PANCAKE_V2_ROUTER;
     const defaultDexPair = dex.pair && !sameAddress(dex.pair, ZERO_ADDRESS) ? dex.pair : salePair;
+    const hasDexPair = defaultDexPair && !sameAddress(defaultDexPair, ZERO_ADDRESS);
+    const dexStatus = dex.enabled ? "已启用" : hasDexPair ? "待保存" : "未开盘";
+    const dexFormDisabled = adminReady && hasDexPair ? "" : "disabled";
+    const processDexDisabled = adminReady && dex.enabled ? "" : "disabled";
     const defaultNativePair = dex.enabled ? dex.nativePair : true;
     const defaultBurnBuyback = dex.enabled ? dex.burnBuyback : true;
-    const fixedAutoInputState = adminReady ? "readonly" : "disabled";
+    const defaultDexEnabled = dex.enabled || hasDexPair;
     const airdropPanel = project.airdropSupported ? `
       <section class="admin-panel">
         <div class="admin-head">
@@ -1553,23 +1556,20 @@ function renderAdminTools(project) {
           <div><span>自动回购</span><strong>${formatBps(FIXED_DEX_AUTO_BUYBACK_BPS)}</strong></div>
           <div><span>自动加池</span><strong>${formatBps(FIXED_DEX_AUTO_LIQUIDITY_BPS)}</strong></div>
         </div>
+        <div class="dex-fixed-note">
+          <span>固定参数</span>
+          <strong>回购 ${formatBps(FIXED_DEX_AUTO_BUYBACK_BPS)} / 加池 ${formatBps(FIXED_DEX_AUTO_LIQUIDITY_BPS)} / 阈值 ${ethers.formatEther(FIXED_DEX_AUTO_THRESHOLD)} / 上限 ${ethers.formatEther(FIXED_DEX_AUTO_LIMIT)}</strong>
+        </div>
         <form class="admin-form dex-form" data-dex-config-form>
-          <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(defaultDexRouter)}" placeholder="默认 Pancake V2" ${disabled} /></label>
-          <label><span>交易对地址</span><input name="pair" type="text" value="${addressInputValue(defaultDexPair)}" placeholder="开盘后自动识别，可留空" ${disabled} /></label>
-          <label><span>配对 Token</span><input name="pairedToken" type="text" value="${addressInputValue(dex.pairedToken)}" placeholder="原生币交易对可留空" ${disabled} /></label>
-          <label><span>回购接收地址</span><input name="buybackRecipient" type="text" value="${addressInputValue(dex.buybackRecipient)}" placeholder="销毁回购可留空" ${disabled} /></label>
-          <label class="check-field"><input name="nativePair" type="checkbox" ${defaultNativePair ? "checked" : ""} ${disabled} /><span>原生币交易对</span></label>
-          <label class="check-field"><input name="burnBuyback" type="checkbox" ${defaultBurnBuyback ? "checked" : ""} ${disabled} /><span>回购后销毁</span></label>
-          <label class="check-field"><input name="enabled" type="checkbox" ${dex.enabled ? "checked" : ""} ${disabled} /><span>启用 DEX</span></label>
-          <button class="outline-button" type="submit" ${disabled}><i data-lucide="save"></i><span>保存 DEX 配置</span></button>
-        </form>
-        <form class="admin-form" data-dex-auto-form>
-          <label><span>自动回购 %</span><input name="autoBuyback" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(FIXED_DEX_AUTO_BUYBACK_BPS)}" ${fixedAutoInputState} /></label>
-          <label><span>自动加池 %</span><input name="autoLiquidity" type="number" min="0" max="100" step="0.01" value="${formatBpsInput(FIXED_DEX_AUTO_LIQUIDITY_BPS)}" ${fixedAutoInputState} /></label>
-          <label><span>触发阈值</span><input name="autoThreshold" type="number" min="0" step="1" value="${ethers.formatEther(FIXED_DEX_AUTO_THRESHOLD)}" ${fixedAutoInputState} /></label>
-          <label><span>单次上限</span><input name="autoLimit" type="number" min="0" step="1" value="${ethers.formatEther(FIXED_DEX_AUTO_LIMIT)}" ${fixedAutoInputState} /></label>
-          <button class="outline-button" type="submit" ${disabled}><i data-lucide="sliders-horizontal"></i><span>保存自动参数</span></button>
-          <button class="gold-button" type="button" data-action="process-auto-dex" ${disabled}><i data-lucide="refresh-cw"></i><span>立即处理税池</span></button>
+          <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(defaultDexRouter)}" placeholder="默认 Pancake V2" ${dexFormDisabled} /></label>
+          <label><span>交易对地址</span><input name="pair" type="text" value="${addressInputValue(defaultDexPair)}" placeholder="开盘后自动识别" ${dexFormDisabled} /></label>
+          <label><span>配对 Token</span><input name="pairedToken" type="text" value="${addressInputValue(dex.pairedToken)}" placeholder="原生币交易对可留空" ${dexFormDisabled} /></label>
+          <label><span>回购接收地址</span><input name="buybackRecipient" type="text" value="${addressInputValue(dex.buybackRecipient)}" placeholder="销毁回购可留空" ${dexFormDisabled} /></label>
+          <label class="check-field"><input name="nativePair" type="checkbox" ${defaultNativePair ? "checked" : ""} ${dexFormDisabled} /><span>原生币交易对</span></label>
+          <label class="check-field"><input name="burnBuyback" type="checkbox" ${defaultBurnBuyback ? "checked" : ""} ${dexFormDisabled} /><span>回购后销毁</span></label>
+          <label class="check-field"><input name="enabled" type="checkbox" ${defaultDexEnabled ? "checked" : ""} ${dexFormDisabled} /><span>启用 DEX</span></label>
+          <button class="outline-button" type="submit" ${dexFormDisabled}><i data-lucide="save"></i><span>保存 DEX 与固定参数</span></button>
+          <button class="gold-button" type="button" data-action="process-auto-dex" ${processDexDisabled}><i data-lucide="refresh-cw"></i><span>立即处理税池</span></button>
         </form>
       </section>
     `;

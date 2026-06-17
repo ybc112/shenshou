@@ -2157,6 +2157,27 @@ input[type="file"]::file-selector-button {
   white-space: nowrap;
 }
 
+.dex-fixed-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(217, 164, 68, 0.36);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: rgba(217, 164, 68, 0.1);
+}
+
+.dex-fixed-note span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.dex-fixed-note strong {
+  color: #ffe3a0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
