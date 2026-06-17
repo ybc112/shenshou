@@ -2985,7 +2985,7 @@ function shortError(error) {
     return "Mint 截止时间不能早于当前时间。";
   }
   if (message.includes("missing revert data") || message.includes("execution reverted")) {
-    return "交易条件不满足，请重点检查总供应量、Mint 总份数、每份 Token、白名单份数、钱包上限和 BNB 余额。";
+    return "链上执行被回滚。表单数字不一定有错，请重点检查发射台部署配置、靓号合约服务、钱包 BNB 余额和 Gas。";
   }
   if (error?.code === "BAD_DATA" || message.includes("could not decode result data")) {
     return "当前地址不是神兽发射台合约，请重新部署或填写正确地址";
