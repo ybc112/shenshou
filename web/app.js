@@ -823,7 +823,7 @@ async function enrichProject(project) {
     sellTaxBps,
     buyFeeRates,
     sellFeeRates,
-    airdropNumbs,
+    airdropInfo,
     evolutionConfig,
     rewardConfig,
     dexConfig,
@@ -840,7 +840,9 @@ async function enrichProject(project) {
     token.totalFeeBps(true).catch(() => 500n),
     token.buyFees().catch(() => null),
     token.sellFees().catch(() => null),
-    token.airdropNumbs().catch(() => 0n),
+    token.airdropNumbs()
+      .then((value) => ({ supported: true, value }))
+      .catch(() => ({ supported: false, value: 0n })),
     state.vault.evolutionPayoutConfigs(project.token).catch(() => null),
     state.vault.rewardConfigs(project.token).catch(() => null),
     state.vault.dexConfigs(project.token).catch(() => null),
@@ -866,7 +868,8 @@ async function enrichProject(project) {
     sellTaxBps: BigInt(sellTaxBps),
     buyFeeRates: normalizeFeeRates(buyFeeRates),
     sellFeeRates: normalizeFeeRates(sellFeeRates),
-    airdropNumbs: BigInt(airdropNumbs),
+    airdropSupported: Boolean(airdropInfo.supported),
+    airdropNumbs: BigInt(airdropInfo.value),
     evolutionConfig: normalizeEvolutionConfig(evolutionConfig),
     rewardConfig: normalizeRewardConfig(rewardConfig),
     dexConfig: normalizeDexConfig(dexConfig),
@@ -1453,6 +1456,21 @@ function renderAdminTools(project) {
     const defaultDexPair = dex.pair && !sameAddress(dex.pair, ZERO_ADDRESS) ? dex.pair : salePair;
     const defaultNativePair = dex.enabled ? dex.nativePair : true;
     const defaultBurnBuyback = dex.enabled ? dex.burnBuyback : true;
+    const airdropPanel = project.airdropSupported ? `
+      <section class="admin-panel">
+        <div class="admin-head">
+          <div>
+            <span>空投裂变</span>
+            <strong>${airdropNumbs > 0n ? `每笔 ${airdropNumbs} 个地址` : "已关闭"}</strong>
+          </div>
+          <small>每笔 Pancake 买卖会额外拆出极小粉尘，随机分发给若干地址，用于增加链上持币地址扩散。填 0 关闭，最多 3。</small>
+        </div>
+        <form class="admin-form" data-airdrop-config-form>
+          <label><span>裂变地址数量</span><input name="airdropNumbs" type="number" min="0" max="3" step="1" value="${airdropNumbs}" ${disabled} /></label>
+          <button class="outline-button" type="submit" ${disabled}><i data-lucide="git-branch-plus"></i><span>保存空投裂变</span></button>
+        </form>
+      </section>
+    ` : "";
 
     container.innerHTML = `
       <section class="admin-access-panel">
@@ -1476,19 +1494,7 @@ function renderAdminTools(project) {
           <button class="outline-button" type="submit" ${disabled}><i data-lucide="flame"></i><span>保存进化机制</span></button>
         </form>
       </section>
-      <section class="admin-panel">
-        <div class="admin-head">
-          <div>
-            <span>空投裂变</span>
-            <strong>${airdropNumbs > 0n ? `每笔 ${airdropNumbs} 个地址` : "已关闭"}</strong>
-          </div>
-          <small>每笔 Pancake 买卖会额外拆出极小粉尘，随机分发给若干地址，用于增加链上持币地址扩散。填 0 关闭，最多 3。</small>
-        </div>
-        <form class="admin-form" data-airdrop-config-form>
-          <label><span>裂变地址数量</span><input name="airdropNumbs" type="number" min="0" max="3" step="1" value="${airdropNumbs}" ${disabled} /></label>
-          <button class="outline-button" type="submit" ${disabled}><i data-lucide="git-branch-plus"></i><span>保存空投裂变</span></button>
-        </form>
-      </section>
+      ${airdropPanel}
       <section class="admin-panel">
         <div class="admin-head">
           <div>
