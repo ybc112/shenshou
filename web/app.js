@@ -97,7 +97,7 @@ const SALE_VAULT_ABI = [
 const BEAST_RUNES = ["麟", "凰", "财", "狐", "龙", "虎", "玄", "兽"];
 const BEAST_TYPE_NAMES = ["麒麟", "凤凰", "貔貅", "九尾狐", "青龙", "白虎", "玄龟", "自定义"];
 const STAGE_NAMES = ["神兽蛋", "幼兽", "成长期", "觉醒", "神兽降临"];
-const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "data", "help"];
+const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "data", "help"];
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
@@ -2808,10 +2808,6 @@ async function copyTokenAddress() {
   showToast(copied ? "Token 合约地址已复制" : "复制失败，请手动长按合约地址复制", copied ? "success" : "error");
 }
 
-function showPlatformTokenPlaceholder() {
-  showToast("平台币入口已预留，等平台币合约部署后接入余额和操作。");
-}
-
 function pageFromHash(hash = window.location.hash) {
   const page = String(hash || "#home").replace("#", "");
   return PAGE_NAMES.includes(page) ? page : "home";
@@ -2956,7 +2952,6 @@ function bindEvents() {
     if (action === "copy-token") await copyTokenAddress();
     if (action === "cancel-sale") await cancelSale();
     if (action === "withdraw-cancelled-tokens") await withdrawCancelledTokens();
-    if (action === "platform-token-placeholder") showPlatformTokenPlaceholder();
     if (action === "select-first" && state.projects[0]) {
       state.selectedProjectId = state.projects[0].id;
       renderAllViews();
