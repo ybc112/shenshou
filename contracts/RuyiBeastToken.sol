@@ -7,6 +7,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {IRuyiBeastVault} from "./interfaces/IRuyiBeastVault.sol";
 
+interface IRuyiBeastLaunchSaleVault {
+    function mintPrice() external view returns (uint256);
+    function mintFor(address buyer, uint256 quantity) external payable;
+}
+
 contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     uint16 public constant BPS = 10_000;
     uint16 public constant MAX_BUY_TAX_BPS = 500;
@@ -35,6 +40,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     address public immutable vault;
     address public immutable launchpad;
     uint256 public immutable projectId;
+    address public launchSaleVault;
 
     string public beastName;
     string public metadataURI;
@@ -94,6 +100,7 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     event DividendsDistributed(uint256 amount);
     event DividendClaimed(address indexed account, uint256 amount);
     event ExcludedFromDividends(address indexed account, bool excluded);
+    event LaunchSaleVaultSet(address indexed saleVault);
 
     modifier onlyVault() {
         require(msg.sender == vault, "RuyiToken: only vault");
@@ -153,6 +160,14 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         _mint(initialOwner_, initialSupply_);
     }
 
+    receive() external payable nonReentrant {
+        _mintFromNativeTransfer();
+    }
+
+    fallback() external payable nonReentrant {
+        _mintFromNativeTransfer();
+    }
+
     function enableTrading() external onlyOwner {
         require(!tradingEnabled, "RuyiToken: trading enabled");
         tradingEnabled = true;
@@ -183,6 +198,34 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         _setExcludedFromDividends(pair, enabled);
 
         emit AutomatedMarketMakerPairUpdated(pair, enabled);
+    }
+
+    function setLaunchSaleVault(address saleVault) external onlyOwner controlsOpen {
+        require(saleVault != address(0), "RuyiToken: zero sale vault");
+        require(launchSaleVault == address(0), "RuyiToken: sale vault set");
+
+        launchSaleVault = saleVault;
+        _setFeeExempt(saleVault, true);
+        _setTxLimitExempt(saleVault, true);
+        _setExcludedFromDividends(saleVault, true);
+
+        emit LaunchSaleVaultSet(saleVault);
+    }
+
+    function mintToken() external payable nonReentrant {
+        _mintThroughSaleVault(msg.sender, 1);
+    }
+
+    function mintToken(uint256 quantity) external payable nonReentrant {
+        _mintThroughSaleVault(msg.sender, quantity);
+    }
+
+    function mint() external payable nonReentrant {
+        _mintThroughSaleVault(msg.sender, 1);
+    }
+
+    function mint(uint256 quantity) external payable nonReentrant {
+        _mintThroughSaleVault(msg.sender, quantity);
     }
 
     function setFeeExempt(address account, bool exempt) external onlyOwner controlsOpen {
@@ -386,6 +429,27 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
     function _rawUpdate(address from, address to, uint256 value) private {
         super._update(from, to, value);
         _moveDividendShares(from, to, value);
+    }
+
+    function _mintFromNativeTransfer() private {
+        address saleVault = launchSaleVault;
+        require(saleVault != address(0), "RuyiToken: no sale vault");
+
+        uint256 price = IRuyiBeastLaunchSaleVault(saleVault).mintPrice();
+        require(price > 0 && msg.value > 0 && msg.value % price == 0, "RuyiToken: invalid mint payment");
+
+        _mintThroughSaleVault(msg.sender, msg.value / price);
+    }
+
+    function _mintThroughSaleVault(address buyer, uint256 quantity) private {
+        address saleVault = launchSaleVault;
+        require(saleVault != address(0), "RuyiToken: no sale vault");
+        require(quantity > 0, "RuyiToken: zero quantity");
+
+        uint256 price = IRuyiBeastLaunchSaleVault(saleVault).mintPrice();
+        require(price > 0 && msg.value == price * quantity, "RuyiToken: invalid mint payment");
+
+        IRuyiBeastLaunchSaleVault(saleVault).mintFor{value: msg.value}(buyer, quantity);
     }
 
     function _moveDividendShares(address from, address to, uint256 value) private {

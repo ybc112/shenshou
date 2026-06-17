@@ -28,7 +28,8 @@ interface IRuyiBeastSaleVaultDeployer {
         address creator,
         address liquidityReceiver,
         address liquidityRouter,
-        uint256 saleSupply,
+        uint256 mintCount,
+        uint256 tokensPerMint,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
         uint256 whitelistMintLimit,
@@ -41,12 +42,14 @@ interface IRuyiLaunchToken is IERC20 {
     function setFeeExempt(address account, bool exempt) external;
     function setTxLimitExempt(address account, bool exempt) external;
     function setExcludedFromDividends(address account, bool excluded) external;
+    function setLaunchSaleVault(address saleVault) external;
 
     function transferOwnership(address newOwner) external;
 }
 
 contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant DEFAULT_SUPPLY = 1_000_000_000 ether;
+    uint16 public constant BPS = 10_000;
     address public constant PANCAKE_V2_ROUTER_BSC = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
 
     enum BeastType {
@@ -68,7 +71,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 initialSupply;
         uint256 auraThreshold;
         BeastType beastType;
-        uint256 saleSupply;
+        uint256 mintCount;
+        uint256 tokensPerMint;
         uint256 mintPrice;
         uint256 maxMintPerWallet;
         uint256 whitelistMintLimit;
@@ -117,6 +121,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     event LaunchSaleCreated(
         uint256 indexed projectId,
         address indexed saleVault,
+        uint256 mintCount,
+        uint256 tokensPerMint,
         uint256 saleSupply,
         uint256 mintPrice,
         uint256 maxMintPerWallet,
@@ -167,19 +173,26 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 projectId = _projects.length;
         uint256 initialSupply = params.initialSupply == 0 ? DEFAULT_SUPPLY : params.initialSupply;
         uint256 auraThreshold = params.auraThreshold == 0 ? initialSupply / 1_000 : params.auraThreshold;
-        bool saleEnabled = params.saleSupply > 0;
+        bool saleEnabled = params.mintCount > 0;
+        uint256 mintVaultSupply = 0;
 
         if (saleEnabled) {
-            require(params.saleSupply <= initialSupply, "RuyiLaunchpad: sale exceeds supply");
+            require(params.tokensPerMint > 0, "RuyiLaunchpad: zero tokens per mint");
             require(params.mintPrice > 0, "RuyiLaunchpad: zero mint price");
-            require(params.whitelistMintLimit <= params.saleSupply, "RuyiLaunchpad: bad whitelist limit");
+            require(params.whitelistMintLimit <= params.mintCount, "RuyiLaunchpad: bad whitelist limit");
+            if (params.maxMintPerWallet > 0) {
+                require(params.maxMintPerWallet <= params.mintCount, "RuyiLaunchpad: bad wallet limit");
+            }
             if (params.whitelistEnabled) {
                 require(params.whitelistMintLimit > 0, "RuyiLaunchpad: zero whitelist limit");
             }
             if (params.saleDeadline > 0) {
                 require(params.saleDeadline > block.timestamp, "RuyiLaunchpad: invalid deadline");
             }
+            mintVaultSupply = _mintVaultSupply(params.mintCount, params.tokensPerMint);
+            require(mintVaultSupply <= initialSupply, "RuyiLaunchpad: sale exceeds supply");
         } else {
+            require(params.tokensPerMint == 0, "RuyiLaunchpad: sale supply required");
             require(params.mintPrice == 0, "RuyiLaunchpad: sale supply required");
             require(params.maxMintPerWallet == 0, "RuyiLaunchpad: sale supply required");
             require(params.whitelistMintLimit == 0, "RuyiLaunchpad: sale supply required");
@@ -212,7 +225,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 msg.sender,
                 receiver,
                 mintRouter,
-                params.saleSupply,
+                params.mintCount,
+                params.tokensPerMint,
                 params.mintPrice,
                 params.maxMintPerWallet,
                 params.whitelistMintLimit,
@@ -220,10 +234,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 params.saleDeadline
             );
 
-            uint256 creatorSupply = initialSupply - params.saleSupply;
+            uint256 creatorSupply = initialSupply - mintVaultSupply;
             if (creatorSupply > 0) {
                 require(beastToken.transfer(msg.sender, creatorSupply), "RuyiLaunchpad: creator transfer failed");
             }
+            beastToken.setLaunchSaleVault(saleVault);
             beastToken.setFeeExempt(saleVault, true);
             beastToken.setTxLimitExempt(saleVault, true);
             beastToken.setExcludedFromDividends(saleVault, true);
@@ -232,7 +247,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 beastToken.setTxLimitExempt(mintRouter, true);
                 beastToken.setExcludedFromDividends(mintRouter, true);
             }
-            require(beastToken.transfer(saleVault, params.saleSupply), "RuyiLaunchpad: sale transfer failed");
+            require(beastToken.transfer(saleVault, mintVaultSupply), "RuyiLaunchpad: sale transfer failed");
             beastToken.transferOwnership(saleVault);
 
             projectSaleVault[projectId] = saleVault;
@@ -240,7 +255,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             emit LaunchSaleCreated(
                 projectId,
                 saleVault,
-                params.saleSupply,
+                params.mintCount,
+                params.tokensPerMint,
+                mintVaultSupply,
                 params.mintPrice,
                 params.maxMintPerWallet,
                 params.whitelistMintLimit,
@@ -282,6 +299,12 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             params.tokenSymbol,
             params.beastType
         );
+    }
+
+    function _mintVaultSupply(uint256 mintCount, uint256 tokensPerMint) private pure returns (uint256) {
+        uint256 userTokenSupply = mintCount * tokensPerMint;
+        uint256 liquidityTokenSupply = (userTokenSupply * BPS) / BPS;
+        return userTokenSupply + liquidityTokenSupply;
     }
 
     function setCreationFee(uint256 newCreationFee) external onlyOwner {

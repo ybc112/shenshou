@@ -13,9 +13,10 @@
 ## 主要机制
 
 - 创建神兽时可选择不开启 Mint 发射，Token 直接归创建者管理。
-- 开启 Mint 发射时，`saleSupply` 作为 Mint 池总额度，同时包含用户 Mint 得到的 Token 和自动加池用的 Token。
-- Mint 发射可开启白名单阶段。创建者设置白名单额度并批量维护地址，额度用完后自动进入公开 Mint。
-- 默认加池比例为 100%。用户 Mint 1 个 Token 时，另 1 个 Token 会配合本笔 BNB 自动加到 Pancake 池子里。
+- 开启 Mint 发射时，创建者填写 `mintCount`（总份数）、`tokensPerMint`（每份到账 Token）和 `mintPrice`（每份 BNB 价格）。散户只需要选择 Mint 1 份、2 份或更多份。
+- Mint 发射可开启白名单阶段。创建者设置白名单份数并批量维护地址，白名单份数用完后自动进入公开 Mint。
+- 默认加池比例为 100%。用户 Mint 1 份时，会收到 `tokensPerMint` 数量的 Token，另有等量 Token 会配合本笔 BNB 自动加到 Pancake 池子里。
+- 用户也可以直接把 BNB 转到 Token 合约，合约会按每份价格自动折算份数并完成 Mint。
 - Mint 支付的 BNB 不转给 dev 地址，不做传统募集款；BNB 会在 Mint 当笔进入流动池。
 - LP 默认进入黑洞地址 `0x000000000000000000000000000000000000dEaD`。
 - BSC 主网部署时默认使用 Pancake V2 Router；其他网络或特殊项目可配置 Router 后再开放 Mint。

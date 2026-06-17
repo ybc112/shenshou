@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-deadline" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-mint-shares" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -164,6 +164,7 @@
                   <div><span>已 Mint</span><strong data-sale-sold>--</strong></div>
                   <div><span>剩余可 Mint</span><strong data-sale-remaining>--</strong></div>
                   <div><span>Mint 单价</span><strong data-sale-price>--</strong></div>
+                  <div><span>每份到账</span><strong data-sale-per-mint>--</strong></div>
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
                   <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
@@ -175,7 +176,13 @@
                   <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
-                  <label><span>Mint 数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入 Mint 数量" /></label>
+                  <label><span>Mint 份数</span><input name="mintQuantity" type="number" min="1" step="1" value="1" placeholder="输入 Mint 份数" /></label>
+                  <div class="mint-shortcuts" aria-label="Mint 份数快捷选择">
+                    <button type="button" data-mint-quantity="1">1份</button>
+                    <button type="button" data-mint-quantity="2">2份</button>
+                    <button type="button" data-mint-quantity="5">5份</button>
+                    <button type="button" data-mint-quantity="max">最大</button>
+                  </div>
                   <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>立即 Mint</span></button>
                 </form>
                 <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
@@ -216,10 +223,11 @@
                 <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
                 <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
                 <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
-                <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
-                <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
-                <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
-                <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
+                <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
+                <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
+                <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
+                <label><span>单钱包最多份数</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
+                <label><span>白名单份数</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
                 <div class="deadline-field" data-deadline-field>
                   <label>
                     <span>Mint 截止时间</span>
@@ -371,10 +379,11 @@
             <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
             <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
-                <label><span>Mint 池总数量</span><input name="saleSupply" type="number" min="0" step="1" placeholder="含用户 Mint 和自动加池" /></label>
-                <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
-                <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
-                <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
+                <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
+                <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
+                <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
+                <label><span>单钱包最多份数</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
+                <label><span>白名单份数</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
                 <div class="deadline-field" data-deadline-field>
                   <label>
                     <span>Mint 截止时间</span>
@@ -472,6 +481,7 @@
                   <div><span>已 Mint</span><strong data-sale-sold>--</strong></div>
                   <div><span>剩余可 Mint</span><strong data-sale-remaining>--</strong></div>
                   <div><span>Mint 单价</span><strong data-sale-price>--</strong></div>
+                  <div><span>每份到账</span><strong data-sale-per-mint>--</strong></div>
                   <div><span>单钱包上限</span><strong data-sale-limit>--</strong></div>
                   <div><span>截止时间</span><strong data-sale-deadline>--</strong></div>
                   <div><span>已加池 BNB</span><strong data-sale-raised>--</strong></div>
@@ -483,7 +493,13 @@
                   <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
                 <form class="sale-form" data-sale-buy-form>
-                  <label><span>Mint 数量</span><input name="tokenAmount" type="number" min="0" step="1" placeholder="输入 Mint 数量" /></label>
+                  <label><span>Mint 份数</span><input name="mintQuantity" type="number" min="1" step="1" value="1" placeholder="输入 Mint 份数" /></label>
+                  <div class="mint-shortcuts" aria-label="Mint 份数快捷选择">
+                    <button type="button" data-mint-quantity="1">1份</button>
+                    <button type="button" data-mint-quantity="2">2份</button>
+                    <button type="button" data-mint-quantity="5">5份</button>
+                    <button type="button" data-mint-quantity="max">最大</button>
+                  </div>
                   <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>立即 Mint</span></button>
                 </form>
                 <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
@@ -683,6 +699,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-deadline"></script>
+    <script src="./app.js?v=20260617-mint-shares"></script>
   </body>
 </html>
