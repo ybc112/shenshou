@@ -237,6 +237,22 @@ function parseShareCount(value) {
   return BigInt(raw);
 }
 
+function readRequiredFormString(data, name, label) {
+  const value = String(data.get(name) || "").trim();
+  if (!value) {
+    throw new Error(`请填写${label}`);
+  }
+  return value;
+}
+
+function restoreScrollPosition(scrollY) {
+  window.requestAnimationFrame(() => {
+    if (Math.abs(window.scrollY - scrollY) > 8) {
+      window.scrollTo({ top: scrollY, behavior: "auto" });
+    }
+  });
+}
+
 function formatShareCount(value) {
   if (value === null || value === undefined) return "--";
   return `${formatCount(value)} 份`;
@@ -1838,7 +1854,7 @@ function setAvatarError(upload, message) {
 async function createBeast(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  if (!(await ensureWritable())) return;
+  const submitScrollY = window.scrollY;
 
   const data = new FormData(form);
   let initialSupply = ZERO;
@@ -1856,9 +1872,9 @@ async function createBeast(event) {
   const fundsReceiver = ZERO_ADDRESS;
 
   const params = {
-    beastName: data.get("beastName").trim(),
-    tokenName: data.get("tokenName").trim(),
-    tokenSymbol: data.get("tokenSymbol").trim(),
+    beastName: "",
+    tokenName: "",
+    tokenSymbol: "",
     metadataURI: "",
     initialSupply,
     auraThreshold,
@@ -1879,6 +1895,9 @@ async function createBeast(event) {
   };
 
   try {
+    params.beastName = readRequiredFormString(data, "beastName", "神兽名称");
+    params.tokenName = readRequiredFormString(data, "tokenName", "Token 名称");
+    params.tokenSymbol = readRequiredFormString(data, "tokenSymbol", "Token 符号");
     initialSupply = parseTokenAmount(data.get("initialSupply"));
     buyTaxBps = parsePercentBps(data.get("buyTax"), "买入税");
     sellTaxBps = parsePercentBps(data.get("sellTax"), "卖出税");
@@ -1926,6 +1945,12 @@ async function createBeast(event) {
       params.saleDeadline = saleDeadline;
       params.fundsReceiver = fundsReceiver;
     }
+
+    if (!(await ensureWritable())) {
+      restoreScrollPosition(submitScrollY);
+      return;
+    }
+    restoreScrollPosition(submitScrollY);
 
     const avatarDataUrl = avatarByForm.get(form) || "";
     const imageUrl = await uploadImage(avatarDataUrl);
@@ -1978,6 +2003,7 @@ async function createBeast(event) {
     await loadProjects();
   } catch (error) {
     console.error(error);
+    restoreScrollPosition(submitScrollY);
     showToast(`创建失败：${shortError(error)}`, "error");
   }
 }
@@ -2606,6 +2632,7 @@ function updateNavigationActive(page) {
 function showPage(pageName, options = {}) {
   const page = PAGE_NAMES.includes(pageName) ? pageName : "home";
   const { updateHash = true, scroll = true } = options;
+  const pageChanged = state.activePage !== page;
 
   state.activePage = page;
   $$("[data-page]").forEach((view) => {
@@ -2617,7 +2644,7 @@ function showPage(pageName, options = {}) {
     window.history.pushState({ page }, "", `#${page}`);
   }
 
-  if (scroll) {
+  if (scroll && pageChanged) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
