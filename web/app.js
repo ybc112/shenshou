@@ -1383,10 +1383,13 @@ function renderSalePanel(project) {
   $$("[data-sale-whitelist-form]").forEach((form) => {
     const canConfigureWhitelist = Boolean(hasSale && isSaleCreator && !sale.finalized && !sale.cancelled && !project.tradingEnabled);
     form.dataset.enabled = canConfigureWhitelist ? "true" : "false";
+    const note = form.querySelector("[data-sale-whitelist-note]");
     const textarea = form.querySelector("textarea[name='accounts']");
     const enabledInput = form.querySelector("input[name='enabled']");
     const listedInput = form.querySelector("input[name='listed']");
     const button = form.querySelector("button");
+    const buttonLabel = button?.querySelector("span");
+    if (note) note.textContent = whitelistConfigHint({ hasSale, sale, project, isSaleCreator, canConfigureWhitelist });
     if (textarea) textarea.disabled = !canConfigureWhitelist;
     if (enabledInput) {
       enabledInput.disabled = !canConfigureWhitelist;
@@ -1397,6 +1400,7 @@ function renderSalePanel(project) {
       listedInput.checked = true;
     }
     if (button) button.disabled = !canConfigureWhitelist;
+    if (buttonLabel) buttonLabel.textContent = canConfigureWhitelist ? "更新白名单" : "不可配置白名单";
   });
 
   $$("[data-sale-owner-form]").forEach((form) => {
@@ -1441,6 +1445,16 @@ function whitelistStatusText(sale) {
   if (sale.whitelistMinted >= sale.whitelistMintLimit) return "已转公开";
   if (!state.account) return "白名单阶段";
   return sale.currentWalletWhitelisted ? "当前钱包可 Mint" : "当前钱包未入白";
+}
+
+function whitelistConfigHint({ hasSale, sale, project, isSaleCreator, canConfigureWhitelist }) {
+  if (!hasSale) return "这个神兽没有开启 Mint 发射，不能配置白名单。";
+  if (canConfigureWhitelist) return "当前钱包是项目创建钱包，可以添加或移除白名单地址。";
+  if (sale.finalized || project?.tradingEnabled) return "项目已经开盘，白名单阶段已结束，不能再修改名单。";
+  if (sale.cancelled) return "这个 Mint 发射已取消，不能再修改白名单。";
+  if (!state.account) return `请先连接项目创建钱包 ${shortAddress(sale.creator)} 后再添加白名单。`;
+  if (!isSaleCreator) return `当前钱包不是项目创建钱包，请切换到 ${shortAddress(sale.creator)}。`;
+  return "当前状态暂不能配置白名单。";
 }
 
 function renderAdminTools(project) {
@@ -1670,7 +1684,7 @@ function renderRankTable() {
     .map((project, index) => {
       const pools = normalizePools(project.pools);
       return `
-        <tr>
+        <tr class="clickable-row" data-enter-project="${project.id}">
           <td><strong class="table-rank">${index + 1}</strong></td>
           <td>
             <div class="table-beast">
@@ -3028,6 +3042,17 @@ function bindEvents() {
   });
 
   document.addEventListener("click", async (event) => {
+    const enterTarget = event.target.closest("[data-enter-project]");
+    if (enterTarget) {
+      state.selectedProjectId = Number(enterTarget.dataset.enterProject);
+      renderAllViews();
+      await renderIdentity();
+      if (!enterTarget.closest("[data-reward-projects]")) {
+        showPage("rank");
+      }
+      return;
+    }
+
     const button = event.target.closest("button");
     if (!button) return;
 
@@ -3051,17 +3076,6 @@ function bindEvents() {
     const nav = button.dataset.nav;
     if (nav) {
       showPage(pageFromHash(nav));
-      return;
-    }
-
-    const projectId = button.dataset.enterProject;
-    if (projectId !== undefined) {
-      state.selectedProjectId = Number(projectId);
-      renderAllViews();
-      await renderIdentity();
-      if (!button.closest("[data-reward-projects]")) {
-        showPage("rank");
-      }
       return;
     }
 

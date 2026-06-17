@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-force-dex-auto" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-whitelist-click-fix" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -191,6 +191,7 @@
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
                 <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                  <p class="sale-form-note form-wide" data-sale-whitelist-note>连接项目创建钱包后可配置白名单。</p>
                   <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
                   <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
                   <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
@@ -527,6 +528,7 @@
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
                 <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                  <p class="sale-form-note form-wide" data-sale-whitelist-note>连接项目创建钱包后可配置白名单。</p>
                   <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
                   <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
                   <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
@@ -686,6 +688,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-hide-extra-test-token"></script>
+    <script src="./app.js?v=20260617-whitelist-click-fix"></script>
   </body>
 </html>

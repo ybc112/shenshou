@@ -879,6 +879,14 @@ input[type="file"]::file-selector-button {
   border-bottom: 0;
 }
 
+.data-table tr.clickable-row {
+  cursor: pointer;
+}
+
+.data-table tr.clickable-row:hover td {
+  background: rgba(217, 164, 68, 0.08);
+}
+
 .data-table small {
   display: block;
   margin-top: 3px;
@@ -2132,6 +2140,18 @@ input[type="file"]::file-selector-button {
 
 .admin-form button {
   min-height: 42px;
+}
+
+.sale-form-note {
+  margin: 0;
+  border: 1px solid rgba(217, 164, 68, 0.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(217, 164, 68, 0.08);
+  color: #d6c8a4;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .dex-summary {
