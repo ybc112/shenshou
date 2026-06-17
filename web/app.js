@@ -142,6 +142,7 @@ const AVATAR_CANVAS_SIZE = 256;
 const MAX_ONCHAIN_METADATA_BYTES = 260_000;
 const MAX_METADATA_TEXT_LENGTH = 480;
 const avatarByForm = new WeakMap();
+const creatingForms = new WeakSet();
 
 const PANCAKE_FACTORY_ABI = [
   "function getPair(address tokenA,address tokenB) view returns (address pair)"
@@ -2161,6 +2162,10 @@ function setAvatarError(upload, message) {
 async function createBeast(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (creatingForms.has(form)) return;
+  creatingForms.add(form);
+  const submitButton = form.querySelector(".form-submit");
+  if (submitButton) submitButton.disabled = true;
   const submitScrollY = window.scrollY;
 
   const data = new FormData(form);
@@ -2319,7 +2324,23 @@ async function createBeast(event) {
     console.error(error);
     restoreScrollPosition(submitScrollY);
     showToast(`创建失败：${shortError(error)}`, "error");
+  } finally {
+    creatingForms.delete(form);
+    if (submitButton) submitButton.disabled = false;
   }
+}
+
+function submitCreateFormFromButton(button) {
+  const form = button.closest("[data-create-form]");
+  if (!form || creatingForms.has(form)) return;
+
+  showToast("正在检查创建资料...");
+  if (typeof form.requestSubmit === "function") {
+    form.requestSubmit(button);
+    return;
+  }
+
+  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 }
 
 async function claimDividends() {
@@ -3133,6 +3154,13 @@ function bindEvents() {
     const saleTab = event.target.closest("[data-sale-tab]");
     if (saleTab) {
       setSaleTab(saleTab);
+      return;
+    }
+
+    const createSubmit = event.target.closest("[data-create-form] .form-submit");
+    if (createSubmit) {
+      event.preventDefault();
+      submitCreateFormFromButton(createSubmit);
       return;
     }
 
