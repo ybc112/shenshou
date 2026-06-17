@@ -98,6 +98,8 @@ const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 const PANCAKE_V2_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
+const PANCAKE_V2_FACTORY = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73";
+const WBNB_ADDRESS = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
 const NATIVE_SYMBOL = "BNB";
 const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/gif", "image/webp"];
 const AVATAR_MAX_SOURCE_BYTES = 1024 * 1024;
@@ -106,6 +108,15 @@ const AVATAR_CANVAS_SIZE = 256;
 const MAX_ONCHAIN_METADATA_BYTES = 260_000;
 const MAX_METADATA_TEXT_LENGTH = 480;
 const avatarByForm = new WeakMap();
+
+const PANCAKE_FACTORY_ABI = [
+  "function getPair(address tokenA,address tokenB) view returns (address pair)"
+];
+
+const PANCAKE_PAIR_ABI = [
+  "function token0() view returns (address)",
+  "function token1() view returns (address)"
+];
 
 const state = {
   account: "",
@@ -205,6 +216,30 @@ function normalizeAddressInput(value, fallback = ZERO_ADDRESS) {
     throw new Error("地址格式不正确");
   }
   return raw;
+}
+
+async function resolveLaunchPairAddress(value, project) {
+  const address = normalizeAddressInput(value);
+  if (!project?.token || sameAddress(address, ZERO_ADDRESS)) {
+    return address;
+  }
+
+  if (sameAddress(address, project.token)) {
+    const factory = new ethers.Contract(PANCAKE_V2_FACTORY, PANCAKE_FACTORY_ABI, state.provider);
+    const pair = await factory.getPair(project.token, WBNB_ADDRESS);
+    if (sameAddress(pair, ZERO_ADDRESS)) {
+      throw new Error("Pancake 还没有找到这个 Token 的 WBNB 交易对，请先完成 Mint 加池");
+    }
+    showToast(`已自动识别 Pancake 交易对：${shortAddress(pair)}`);
+    return pair;
+  }
+
+  const pairContract = new ethers.Contract(address, PANCAKE_PAIR_ABI, state.provider);
+  const [token0, token1] = await Promise.all([pairContract.token0(), pairContract.token1()]);
+  if (!sameAddress(token0, project.token) && !sameAddress(token1, project.token)) {
+    throw new Error("交易对里没有当前神兽 Token，请填写正确的 Pancake LP 地址");
+  }
+  return address;
 }
 
 function parseDeadline(value) {
@@ -2067,13 +2102,9 @@ async function finalizeSale(event) {
   if (!project) return;
   if (!(await ensureWritable())) return;
 
-  const pair = String(new FormData(form).get("pair") || "").trim();
-  if (!ethers.isAddress(pair)) {
-    showToast("请输入有效的交易对地址。", "error");
-    return;
-  }
-
   try {
+    const pairInput = String(new FormData(form).get("pair") || "").trim();
+    const pair = await resolveLaunchPairAddress(pairInput, project);
     showToast("开盘交易已发起，请在钱包确认。");
     if (project.sale) {
       const saleVault = selectedSaleVault(state.signer);
