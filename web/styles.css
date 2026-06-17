@@ -3805,6 +3805,14 @@ body {
     overflow-x: hidden;
   }
 
+  body {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .workspace {
+    padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+
   .topbar {
     padding-left: 12px;
     padding-right: 12px;
