@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-layout" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-deadline" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -220,7 +220,18 @@
                 <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
-                <label><span>Mint 截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+                <div class="deadline-field" data-deadline-field>
+                  <label>
+                    <span>Mint 截止时间</span>
+                    <input name="saleDeadline" type="text" inputmode="text" autocomplete="off" placeholder="例如 2026-06-18 20:00，可留空" data-deadline-input />
+                  </label>
+                  <div class="deadline-shortcuts" aria-label="Mint 截止时间快捷选择">
+                    <button type="button" data-deadline-hours="24">24小时</button>
+                    <button type="button" data-deadline-hours="48">48小时</button>
+                    <button type="button" data-deadline-days="7">7天</button>
+                    <button type="button" data-deadline-clear>不限制</button>
+                  </div>
+                </div>
                 <label class="check-field"><input name="whitelistEnabled" type="checkbox" /><span>开启白名单 Mint</span></label>
                 <div class="form-wide avatar-upload" data-avatar-upload>
                   <span>神兽头像</span>
@@ -364,7 +375,18 @@
                 <label><span>Mint 单价 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入 Mint 单价" /></label>
                 <label><span>单钱包上限</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>白名单额度</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
-                <label><span>Mint 截止时间</span><input name="saleDeadline" type="datetime-local" /></label>
+                <div class="deadline-field" data-deadline-field>
+                  <label>
+                    <span>Mint 截止时间</span>
+                    <input name="saleDeadline" type="text" inputmode="text" autocomplete="off" placeholder="例如 2026-06-18 20:00，可留空" data-deadline-input />
+                  </label>
+                  <div class="deadline-shortcuts" aria-label="Mint 截止时间快捷选择">
+                    <button type="button" data-deadline-hours="24">24小时</button>
+                    <button type="button" data-deadline-hours="48">48小时</button>
+                    <button type="button" data-deadline-days="7">7天</button>
+                    <button type="button" data-deadline-clear>不限制</button>
+                  </div>
+                </div>
                 <label class="check-field"><input name="whitelistEnabled" type="checkbox" /><span>开启白名单 Mint</span></label>
                 <div class="form-wide avatar-upload" data-avatar-upload>
               <span>神兽头像</span>
@@ -661,6 +683,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-deploy"></script>
+    <script src="./app.js?v=20260617-deadline"></script>
   </body>
 </html>

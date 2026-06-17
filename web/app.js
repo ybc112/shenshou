@@ -190,7 +190,7 @@ function normalizeAddressInput(value, fallback = ZERO_ADDRESS) {
 function parseDeadline(value) {
   const raw = String(value || "").trim();
   if (!raw) return ZERO;
-  const ms = new Date(raw).getTime();
+  const ms = parseDeadlineMs(raw);
   if (!Number.isFinite(ms)) {
     throw new Error("请选择有效的 Mint 截止时间");
   }
@@ -199,6 +199,57 @@ function parseDeadline(value) {
     throw new Error("Mint 截止时间必须晚于当前时间");
   }
   return seconds;
+}
+
+function parseDeadlineMs(value) {
+  const raw = String(value || "").trim().replace(/\s+/g, " ").replace(/[./]/g, "-");
+  if (!raw) return Number.NaN;
+
+  if (/^\d{10,13}$/.test(raw)) {
+    const timestamp = Number(raw);
+    return raw.length === 10 ? timestamp * 1000 : timestamp;
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?$/);
+  if (match) {
+    const [, year, month, day, hour = "23", minute = "59", second = "0"] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+    const isValid =
+      date.getFullYear() === Number(year) &&
+      date.getMonth() === Number(month) - 1 &&
+      date.getDate() === Number(day) &&
+      date.getHours() === Number(hour) &&
+      date.getMinutes() === Number(minute);
+    return isValid ? date.getTime() : Number.NaN;
+  }
+
+  return new Date(raw.replace(" ", "T")).getTime();
+}
+
+function formatDeadlineInput(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate())
+  ].join("-") + ` ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fillDeadlineShortcut(button) {
+  const field = button.closest("[data-deadline-field]");
+  const input = field?.querySelector("[data-deadline-input]");
+  if (!input) return;
+
+  if (button.matches("[data-deadline-clear]")) {
+    input.value = "";
+  } else {
+    const hours = Number(button.dataset.deadlineHours || 0);
+    const days = Number(button.dataset.deadlineDays || 0);
+    const offsetMs = (hours + days * 24) * 60 * 60 * 1000;
+    input.value = formatDeadlineInput(new Date(Date.now() + offsetMs));
+  }
+
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function saleStatusLabel(project) {
@@ -2331,6 +2382,11 @@ function bindEvents() {
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+
+    if (button.matches("[data-deadline-hours], [data-deadline-days], [data-deadline-clear]")) {
+      fillDeadlineShortcut(button);
+      return;
+    }
 
     setActiveButton(button);
 

@@ -1759,6 +1759,46 @@ input[type="file"]::file-selector-button {
   margin: 0;
 }
 
+.deadline-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.deadline-field label {
+  min-width: 0;
+}
+
+.deadline-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.deadline-shortcuts button {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid rgba(217, 164, 68, 0.28);
+  border-radius: 8px;
+  background: rgba(217, 164, 68, 0.1);
+  color: #f4d28b;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.deadline-shortcuts button:hover {
+  border-color: rgba(217, 164, 68, 0.54);
+  background: rgba(217, 164, 68, 0.16);
+}
+
+@media (max-width: 420px) {
+  .deadline-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .sale-actions {
   padding-top: 2px;
 }
