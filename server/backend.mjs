@@ -1,12 +1,38 @@
+import dotenv from "dotenv";
+import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { Contract, JsonRpcProvider, getAddress, isAddress } from "ethers";
+
+dotenv.config({ quiet: true });
 
 const port = Number(process.env.PORT || 8787);
+const rootDir = process.cwd();
 const assetDir = path.resolve(process.env.ASSET_DIR || path.join(process.cwd(), "work", "assets"));
 const webDir = path.resolve(process.env.WEB_DIR || path.join(process.cwd(), "web"));
 const corsOrigin = process.env.CORS_ORIGIN || "*";
+const LAUNCHPAD_ABI = [
+  "function projectCount() view returns (uint256)",
+  "function isLaunchpadToken(address token) view returns (bool)",
+  "function getProject(uint256 projectId) view returns (tuple(uint256 id,address token,address creator,string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 createdAt) project)"
+];
+const deployment = readJson(path.join(webDir, "deployments", "latest.json"), {});
+const chainId = Number(process.env.RUYI_CHAIN_ID || deployment.chainId || 56);
+const rpcUrl = process.env.BSC_RPC_URL || process.env.RUYI_RPC_URL || "";
+const launchpadAddress = normalizeOptionalAddress(process.env.LAUNCHPAD_ADDRESS || deployment.launchpadAddress || "");
+const provider = rpcUrl ? new JsonRpcProvider(rpcUrl, chainId) : null;
+const launchpad = provider && launchpadAddress ? new Contract(launchpadAddress, LAUNCHPAD_ABI, provider) : null;
+const autoVerify = process.env.AUTO_VERIFY_PROJECTS !== "false";
+const verifyPollMs = Number(process.env.VERIFY_POLL_MS || 30000);
+const verifyBackfillCount = Number(process.env.VERIFY_BACKFILL_COUNT || 12);
+const verifyInitialDelayMs = Number(process.env.VERIFY_INITIAL_DELAY_MS || 20000);
+const verifyRetryDelayMs = Number(process.env.VERIFY_RETRY_DELAY_MS || 60000);
+const verifyRetryLimit = Number(process.env.VERIFY_RETRY_LIMIT || 5);
+const jobs = new Map();
+let lastProjectCount = 0;
+let verifying = false;
 
 const server = createServer(async (request, response) => {
   setCors(response);
@@ -19,7 +45,27 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
   if (request.method === "GET" && url.pathname === "/api/health") {
-    sendJson(response, 200, { ok: true, service: "ruyi-backend", uptime: Math.round(process.uptime()) });
+    sendJson(response, 200, {
+      ok: true,
+      service: "ruyi-backend",
+      uptime: Math.round(process.uptime()),
+      chainId,
+      launchpad: launchpadAddress || "",
+      autoVerify,
+      verifierReady: Boolean(launchpad && process.env.BSCSCAN_API_KEY),
+      queued: [...jobs.values()].filter((job) => job.status === "queued").length,
+      running: [...jobs.values()].filter((job) => job.status === "running").length
+    });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/verify-status") {
+    try {
+      const token = normalizeAddress(url.searchParams.get("token") || "");
+      sendJson(response, 200, { token, job: jobs.get(token.toLowerCase()) || null });
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 
@@ -39,6 +85,19 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/verify-project") {
+    try {
+      const body = await readBody(request);
+      const token = normalizeAddress(body.token);
+      await assertLaunchpadProject(token);
+      queueVerify(token, "api");
+      sendJson(response, 202, { ok: true, token, job: jobs.get(token.toLowerCase()) });
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+
   if (request.method === "GET") {
     await sendStatic(response, url.pathname);
     return;
@@ -51,7 +110,124 @@ server.listen(port, () => {
   console.log(`Backend listening on :${port}`);
   console.log(`Asset dir: ${assetDir}`);
   console.log(`Web dir: ${webDir}`);
+  console.log(`Launchpad: ${launchpadAddress || "not configured"}`);
+  if (autoVerify && launchpad) {
+    void syncProjects(true);
+    setInterval(() => void syncProjects(false), verifyPollMs);
+  }
 });
+
+async function syncProjects(backfill) {
+  if (!launchpad) return;
+
+  try {
+    const count = Number(await launchpad.projectCount());
+    const start = backfill ? Math.max(0, count - verifyBackfillCount) : lastProjectCount;
+    for (let index = start; index < count; index += 1) {
+      const project = await launchpad.getProject(index);
+      if (project?.token && isAddress(project.token)) {
+        queueVerify(project.token, backfill ? "backfill" : "monitor");
+      }
+    }
+    lastProjectCount = count;
+  } catch (error) {
+    console.error("Project sync failed:", error instanceof Error ? error.message : error);
+  }
+}
+
+function queueVerify(token, source) {
+  const normalized = getAddress(token);
+  const key = normalized.toLowerCase();
+  const current = jobs.get(key);
+  if (current && ["queued", "running", "success"].includes(current.status)) {
+    return;
+  }
+
+  jobs.set(key, {
+    token: normalized,
+    source,
+    status: "queued",
+    attempts: 0,
+    logs: [],
+    nextRunAt: source === "backfill" ? "" : new Date(Date.now() + verifyInitialDelayMs).toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  void drainVerifyQueue();
+}
+
+async function drainVerifyQueue() {
+  if (verifying) return;
+  verifying = true;
+
+  try {
+    while (true) {
+      const now = Date.now();
+      const queuedJobs = [...jobs.values()].filter((job) => job.status === "queued");
+      const job = queuedJobs.find((item) => !item.nextRunAt || Date.parse(item.nextRunAt) <= now);
+      if (!job) {
+        const nextRunAt = queuedJobs
+          .map((item) => item.nextRunAt ? Date.parse(item.nextRunAt) : now)
+          .filter((time) => Number.isFinite(time))
+          .sort((left, right) => left - right)[0];
+        if (nextRunAt) {
+          setTimeout(() => void drainVerifyQueue(), Math.max(1000, nextRunAt - now));
+        }
+        return;
+      }
+
+      job.status = "running";
+      job.nextRunAt = "";
+      job.updatedAt = new Date().toISOString();
+
+      try {
+        const logs = await runVerify(job.token);
+        job.status = "success";
+        job.logs = logs;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        job.attempts = Number(job.attempts || 0) + 1;
+        job.logs = [message];
+        if (job.attempts < verifyRetryLimit) {
+          job.status = "queued";
+          job.nextRunAt = new Date(Date.now() + verifyRetryDelayMs * job.attempts).toISOString();
+        } else {
+          job.status = "error";
+          job.nextRunAt = "";
+        }
+      }
+      job.updatedAt = new Date().toISOString();
+    }
+  } finally {
+    verifying = false;
+  }
+}
+
+function runVerify(token) {
+  return new Promise((resolve, reject) => {
+    const logs = [];
+    const child = spawn("npm", ["run", "verify:project"], {
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        PROJECT_TOKEN: token,
+        LAUNCHPAD_ADDRESS: launchpadAddress,
+        BSC_RPC_URL: rpcUrl
+      },
+      shell: process.platform === "win32"
+    });
+
+    child.stdout.on("data", (chunk) => logs.push(String(chunk)));
+    child.stderr.on("data", (chunk) => logs.push(String(chunk)));
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve(logs.slice(-80));
+        return;
+      }
+      reject(new Error(logs.join("") || `verify exited with code ${code}`));
+    });
+  });
+}
 
 async function saveDataUrlAsset(dataUrl, request) {
   const raw = String(dataUrl ?? "");
@@ -195,4 +371,35 @@ function setCors(response) {
   response.setHeader("access-control-allow-origin", corsOrigin);
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
   response.setHeader("access-control-allow-headers", "content-type");
+}
+
+async function assertLaunchpadProject(token) {
+  if (!launchpad) {
+    throw new Error("Launchpad verifier is not configured.");
+  }
+  const known = await launchpad.isLaunchpadToken(token);
+  if (!known) {
+    throw new Error("Token is not indexed by the configured Launchpad.");
+  }
+}
+
+function normalizeAddress(value) {
+  const raw = String(value || "").trim();
+  if (!isAddress(raw)) {
+    throw new Error("Invalid token address.");
+  }
+  return getAddress(raw);
+}
+
+function normalizeOptionalAddress(value) {
+  const raw = String(value || "").trim();
+  return isAddress(raw) ? getAddress(raw) : "";
+}
+
+function readJson(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
 }

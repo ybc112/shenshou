@@ -21,6 +21,10 @@ function metadataURI(beastName, tokenName, tokenSymbol, beastType) {
   return `data:application/json;base64,${Buffer.from(JSON.stringify(payload)).toString("base64")}`;
 }
 
+function feeRates(evolution = 0, fortune = 0, risk = 0, reward = 0, treasury = 0, burn = 0) {
+  return { evolution, fortune, risk, reward, treasury, burn };
+}
+
 async function main() {
   const deploymentPath = path.join(__dirname, "..", "web", "deployments", "latest.json");
   if (!fs.existsSync(deploymentPath)) {
@@ -53,7 +57,10 @@ async function main() {
       whitelistMintLimit: 0,
       whitelistEnabled: false,
       saleDeadline: 0,
-      fundsReceiver: ethers.ZeroAddress
+      fundsReceiver: ethers.ZeroAddress,
+      buyFees: feeRates(),
+      sellFees: feeRates(),
+      customFees: false
     });
     await tx.wait();
   }

@@ -226,6 +226,8 @@
                 <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
                 <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
                 <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
+                <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
+                <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
                 <label><span>单钱包最多份数</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>白名单份数</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
                 <div class="deadline-field" data-deadline-field>
@@ -379,10 +381,12 @@
             <label><span>Token 名称</span><input name="tokenName" type="text" placeholder="输入 Token 名称" required /></label>
             <label><span>Token 符号</span><input name="tokenSymbol" type="text" placeholder="输入 Token 符号" required /></label>
             <label><span>总供应量</span><input name="initialSupply" type="number" min="1" step="1" placeholder="输入总供应量" /></label>
-                <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
-                <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
-                <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
-                <label><span>单钱包最多份数</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
+            <label><span>Mint 总份数</span><input name="mintCount" type="number" min="0" step="1" placeholder="例如 10000，留空则不开 Mint" /></label>
+            <label><span>每份可得 Token</span><input name="tokensPerMint" type="number" min="0" step="1" placeholder="例如 100000" /></label>
+            <label><span>每份价格 BNB</span><input name="mintPrice" type="number" min="0" step="0.000001" placeholder="输入每份价格" /></label>
+            <label><span>买入税 %</span><input name="buyTax" type="number" min="0" max="5" step="0.01" value="3" /></label>
+            <label><span>卖出税 %</span><input name="sellTax" type="number" min="0" max="10" step="0.01" value="5" /></label>
+            <label><span>单钱包最多份数</span><input name="maxMintPerWallet" type="number" min="0" step="1" placeholder="留空则不限制" /></label>
                 <label><span>白名单份数</span><input name="whitelistMintLimit" type="number" min="0" step="1" placeholder="留空则不开白名单" /></label>
                 <div class="deadline-field" data-deadline-field>
                   <label>

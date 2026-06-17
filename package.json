@@ -12,6 +12,7 @@
     "deploy:bsc": "hardhat run scripts/deploy.js --network bsc",
     "deploy:bsc:resume": "node scripts/resume-bsc-deploy.js",
     "verify:bsc": "hardhat run scripts/verify-latest.js --network bsc",
+    "verify:project": "node scripts/verify-project.js",
     "node": "hardhat node",
     "deploy:local": "set FRONTEND_RPC_URL=http://127.0.0.1:8545&& hardhat run scripts/deploy.js --network localhost",
     "seed:local": "hardhat run scripts/seed.js --network localhost",

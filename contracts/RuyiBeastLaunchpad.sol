@@ -39,6 +39,16 @@ interface IRuyiBeastSaleVaultDeployer {
 }
 
 interface IRuyiLaunchToken is IERC20 {
+    struct FeeRates {
+        uint16 evolution;
+        uint16 fortune;
+        uint16 risk;
+        uint16 reward;
+        uint16 treasury;
+        uint16 burn;
+    }
+
+    function setFees(FeeRates calldata newBuyFees, FeeRates calldata newSellFees) external;
     function setFeeExempt(address account, bool exempt) external;
     function setTxLimitExempt(address account, bool exempt) external;
     function setExcludedFromDividends(address account, bool excluded) external;
@@ -79,6 +89,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         bool whitelistEnabled;
         uint256 saleDeadline;
         address fundsReceiver;
+        IRuyiLaunchToken.FeeRates buyFees;
+        IRuyiLaunchToken.FeeRates sellFees;
+        bool customFees;
     }
 
     struct BeastProject {
@@ -205,7 +218,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             params.tokenName,
             params.tokenSymbol,
             initialSupply,
-            saleEnabled ? address(this) : msg.sender,
+            address(this),
             address(vault),
             address(this),
             projectId,
@@ -216,6 +229,10 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
 
         vault.registerToken(token);
         IRuyiLaunchToken beastToken = IRuyiLaunchToken(token);
+
+        if (params.customFees) {
+            beastToken.setFees(params.buyFees, params.sellFees);
+        }
 
         if (saleEnabled) {
             address receiver = params.fundsReceiver;
@@ -266,6 +283,11 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
                 receiver,
                 mintRouter
             );
+        } else {
+            beastToken.setFeeExempt(msg.sender, true);
+            beastToken.setTxLimitExempt(msg.sender, true);
+            require(beastToken.transfer(msg.sender, initialSupply), "RuyiLaunchpad: creator transfer failed");
+            beastToken.transferOwnership(msg.sender);
         }
 
         _projects.push(

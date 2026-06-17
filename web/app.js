@@ -18,7 +18,8 @@ const LAUNCHPAD_ABI = [
   "function setDexConfig(address token,address router,address pairedToken,address pair,address liquidityReceiver,address buybackRecipient,bool nativePair,bool burnBuyback,bool enabled)",
   "function setDexAutomationConfig(address token,uint16 autoBuybackBps,uint16 autoLiquidityBps,uint256 autoProcessThreshold,uint256 autoProcessLimit)",
   "function processAutoDex(address token) returns (uint256 processedAmount,uint256 buybackOut,uint256 liquidity)",
-  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 mintCount,uint256 tokensPerMint,uint256 mintPrice,uint256 maxMintPerWallet,uint256 whitelistMintLimit,bool whitelistEnabled,uint256 saleDeadline,address fundsReceiver) params) payable returns (address token)"
+  "function createBeast((string beastName,string tokenName,string tokenSymbol,string metadataURI,uint256 initialSupply,uint256 auraThreshold,uint8 beastType,uint256 mintCount,uint256 tokensPerMint,uint256 mintPrice,uint256 maxMintPerWallet,uint256 whitelistMintLimit,bool whitelistEnabled,uint256 saleDeadline,address fundsReceiver,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) buyFees,(uint16 evolution,uint16 fortune,uint16 risk,uint16 reward,uint16 treasury,uint16 burn) sellFees,bool customFees) params) payable returns (address token)",
+  "event BeastCreated(uint256 indexed projectId,address indexed token,address indexed creator,string beastName,string tokenName,string tokenSymbol,uint8 beastType)"
 ];
 
 const TOKEN_ABI = [
@@ -95,6 +96,12 @@ const PAGE_NAMES = ["home", "beasts", "create", "rank", "reward", "platform", "d
 const ZERO = 0n;
 const BPS = 10_000n;
 const TOKEN_UNIT = 1_000_000_000_000_000_000n;
+const MAX_BUY_TAX_BPS = 500;
+const MAX_SELL_TAX_BPS = 1000;
+const DEFAULT_BUY_TAX_BPS = 300;
+const DEFAULT_SELL_TAX_BPS = 500;
+const DEFAULT_BUY_FEE_TEMPLATE = [150, 50, 50, 50, 0, 0];
+const DEFAULT_SELL_FEE_TEMPLATE = [200, 100, 100, 50, 50, 0];
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 const PANCAKE_V2_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
@@ -177,6 +184,30 @@ function parsePercentBps(value, label) {
     throw new Error(`${label}需要在 0 到 100 之间`);
   }
   return Math.round(next * 100);
+}
+
+function splitFeeRates(totalBps, template) {
+  if (!totalBps) return [0, 0, 0, 0, 0, 0];
+
+  const templateTotal = template.reduce((sum, item) => sum + item, 0);
+  if (!templateTotal) return [0, 0, 0, 0, 0, totalBps];
+
+  const output = [0, 0, 0, 0, 0, 0];
+  let remainderIndex = 0;
+  for (let index = template.length - 1; index >= 0; index -= 1) {
+    if (template[index] > 0) {
+      remainderIndex = index;
+      break;
+    }
+  }
+  let assigned = 0;
+  for (let index = 0; index < template.length; index += 1) {
+    if (index === remainderIndex) continue;
+    output[index] = Math.floor((totalBps * template[index]) / templateTotal);
+    assigned += output[index];
+  }
+  output[remainderIndex] = totalBps - assigned;
+  return output;
 }
 
 function formatDateTime(timestamp) {
@@ -1602,6 +1633,40 @@ async function uploadImage(dataUrl) {
   }
 }
 
+function readCreatedBeastToken(receipt) {
+  if (!receipt?.logs?.length || !state.launchpadAddress) return "";
+
+  const iface = new ethers.Interface(LAUNCHPAD_ABI);
+  for (const log of receipt.logs) {
+    if (log.address && !sameAddress(log.address, state.launchpadAddress)) continue;
+    try {
+      const parsed = iface.parseLog({ data: log.data, topics: log.topics });
+      if (parsed?.name === "BeastCreated" && ethers.isAddress(String(parsed.args.token))) {
+        return String(parsed.args.token);
+      }
+    } catch {
+      // Ignore logs from nested token/vault deployments.
+    }
+  }
+  return "";
+}
+
+async function queueProjectVerification(tokenAddress) {
+  if (!ethers.isAddress(tokenAddress)) return false;
+
+  try {
+    const response = await fetch(apiUrl("/api/verify-project"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: tokenAddress }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Verify queue failed:", error);
+    return false;
+  }
+}
+
 function apiUrl(path) {
   return `${BACKEND_URL}${path}`;
 }
@@ -1713,6 +1778,8 @@ async function createBeast(event) {
   let whitelistMintLimit = ZERO;
   let whitelistEnabled = false;
   let saleDeadline = ZERO;
+  let buyTaxBps = DEFAULT_BUY_TAX_BPS;
+  let sellTaxBps = DEFAULT_SELL_TAX_BPS;
   const fundsReceiver = ZERO_ADDRESS;
 
   const params = {
@@ -1730,14 +1797,27 @@ async function createBeast(event) {
     whitelistMintLimit,
     whitelistEnabled,
     saleDeadline,
-    fundsReceiver
+    fundsReceiver,
+    buyFees: splitFeeRates(DEFAULT_BUY_TAX_BPS, DEFAULT_BUY_FEE_TEMPLATE),
+    sellFees: splitFeeRates(DEFAULT_SELL_TAX_BPS, DEFAULT_SELL_FEE_TEMPLATE),
+    customFees: true
   };
 
   try {
     initialSupply = parseTokenAmount(data.get("initialSupply"));
+    buyTaxBps = parsePercentBps(data.get("buyTax"), "买入税");
+    sellTaxBps = parsePercentBps(data.get("sellTax"), "卖出税");
+    if (buyTaxBps > MAX_BUY_TAX_BPS) {
+      throw new Error("买入税不能超过 5%");
+    }
+    if (sellTaxBps > MAX_SELL_TAX_BPS) {
+      throw new Error("卖出税不能超过 10%");
+    }
     mintCount = parseShareCount(data.get("mintCount"));
     saleEnabled = mintCount > ZERO;
     params.initialSupply = initialSupply;
+    params.buyFees = splitFeeRates(buyTaxBps, DEFAULT_BUY_FEE_TEMPLATE);
+    params.sellFees = splitFeeRates(sellTaxBps, DEFAULT_SELL_FEE_TEMPLATE);
     params.mintCount = mintCount;
 
     if (saleEnabled) {
@@ -1792,13 +1872,24 @@ async function createBeast(event) {
         params.whitelistMintLimit,
         params.whitelistEnabled,
         params.saleDeadline,
-        params.fundsReceiver
+        params.fundsReceiver,
+        params.buyFees,
+        params.sellFees,
+        params.customFees
       ],
       { value: state.creationFee }
     );
     showToast("交易已提交，等待上链...");
-    await tx.wait();
-    showToast("神兽创建成功");
+    const receipt = await tx.wait();
+    const createdToken = readCreatedBeastToken(receipt);
+    let verificationQueued = false;
+    if (createdToken) {
+      verificationQueued = await queueProjectVerification(createdToken);
+      if (verificationQueued) {
+        showToast("神兽创建成功，已提交合约开源队列");
+      }
+    }
+    if (!verificationQueued) showToast("神兽创建成功");
     form.reset();
     resetUploadPreview(form);
     await loadProjects();

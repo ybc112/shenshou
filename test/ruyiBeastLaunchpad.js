@@ -45,8 +45,15 @@ describe("Ruyi Beast Launchpad", function () {
       whitelistEnabled: false,
       saleDeadline: 0,
       fundsReceiver: ethers.ZeroAddress,
+      buyFees: feeRates(),
+      sellFees: feeRates(),
+      customFees: false,
       ...overrides
     };
+  }
+
+  function feeRates(evolution = 0, fortune = 0, risk = 0, reward = 0, treasury = 0, burn = 0) {
+    return { evolution, fortune, risk, reward, treasury, burn };
   }
 
   async function deployFixture() {
@@ -70,6 +77,24 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.owner(), creator.address);
     assert.equal(await token.balanceOf(creator.address), supply);
     assert.equal(await vault.registeredTokens(await token.getAddress()), true);
+  });
+
+  it("applies custom launch taxes during creation", async function () {
+    const { creator, launchpad } = await deployLaunchpad();
+
+    await launchpad.connect(creator).createBeast(directParams({
+      buyFees: feeRates(100, 50, 0, 0, 0, 0),
+      sellFees: feeRates(200, 100, 100, 50, 50, 0),
+      customFees: true
+    }));
+
+    const project = await launchpad.getProject(0);
+    const token = await ethers.getContractAt("RuyiBeastToken", project.token);
+
+    assert.equal(await token.owner(), creator.address);
+    assert.equal(await token.totalFeeBps(false), 150n);
+    assert.equal(await token.totalFeeBps(true), 500n);
+    assert.equal(await token.balanceOf(creator.address), supply);
   });
 
   it("takes buy and sell fees into vault pools and accumulates aura", async function () {
