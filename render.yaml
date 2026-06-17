@@ -7,7 +7,7 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: http://154.12.118.163:8787/api/*
+        destination: https://154.12.118.163.sslip.io/ruyi-api/api/*
       - type: rewrite
         source: /*
         destination: /index.html
