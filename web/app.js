@@ -2720,16 +2720,19 @@ async function saveDexConfig(event) {
     const nativePair = data.get("nativePair") === "on";
     const burnBuyback = data.get("burnBuyback") === "on";
     const enabled = data.get("enabled") === "on";
-    const salePair = project.sale?.launchPair || ZERO_ADDRESS;
     const saleRouter = project.sale?.liquidityRouter || PANCAKE_V2_ROUTER;
     const router = normalizeAddressInput(data.get("router"), saleRouter);
     const pairedToken = normalizeAddressInput(data.get("pairedToken"), ZERO_ADDRESS);
-    const pair = normalizeAddressInput(data.get("pair"), salePair);
+    const defaultPair = project.sale?.launchPair && !sameAddress(project.sale.launchPair, ZERO_ADDRESS)
+      ? project.sale.launchPair
+      : await resolveLaunchPairFromRouter(project.token, router);
+    const pair = normalizeAddressInput(data.get("pair"), defaultPair);
     const liquidityReceiver = DEAD_ADDRESS;
     const buybackRecipient = normalizeAddressInput(data.get("buybackRecipient"), ZERO_ADDRESS);
 
     if (enabled) {
       if (sameAddress(router, ZERO_ADDRESS)) throw new Error("启用 DEX 时需要填写 Router 地址");
+      if (sameAddress(pair, ZERO_ADDRESS)) throw new Error("启用 DEX 时需要填写或生成交易对地址");
       if (!nativePair && sameAddress(pairedToken, ZERO_ADDRESS)) throw new Error("非原生币交易对需要填写配对 Token");
       if (!burnBuyback && sameAddress(buybackRecipient, ZERO_ADDRESS)) throw new Error("非销毁回购需要填写回购接收地址");
     }
@@ -2773,6 +2776,34 @@ async function saveDexAutomationConfig(event) {
     const autoProcessLimit = parseTokenAmount(data.get("autoLimit"));
 
     const launchpadWithSigner = state.launchpad.connect(state.signer);
+    const dex = project.dexConfig || normalizeDexConfig(null);
+    const saleRouter = project.sale?.liquidityRouter || PANCAKE_V2_ROUTER;
+    const router = dex.router && !sameAddress(dex.router, ZERO_ADDRESS) ? dex.router : saleRouter;
+    const pair = dex.pair && !sameAddress(dex.pair, ZERO_ADDRESS)
+      ? dex.pair
+      : project.sale?.launchPair && !sameAddress(project.sale.launchPair, ZERO_ADDRESS)
+        ? project.sale.launchPair
+        : await resolveLaunchPairFromRouter(project.token, router);
+
+    if (sameAddress(router, ZERO_ADDRESS)) throw new Error("需要先生成或填写 Router 地址");
+    if (sameAddress(pair, ZERO_ADDRESS)) throw new Error("需要先生成或填写交易对地址");
+
+    if (!dex.enabled || sameAddress(dex.router, ZERO_ADDRESS) || sameAddress(dex.pair, ZERO_ADDRESS)) {
+      showToast("正在补全 DEX 路由和交易对配置，请先确认第一笔交易。");
+      const configTx = await launchpadWithSigner.setDexConfig(
+        project.token,
+        router,
+        ZERO_ADDRESS,
+        pair,
+        DEAD_ADDRESS,
+        ZERO_ADDRESS,
+        true,
+        true,
+        true
+      );
+      await configTx.wait();
+    }
+
     showToast("自动机制交易已发起，请在钱包确认。");
     const tx = await launchpadWithSigner.setDexAutomationConfig(
       project.token,
