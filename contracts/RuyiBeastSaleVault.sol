@@ -246,7 +246,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         emit WhitelistAccountUpdated(account, listed);
     }
 
-    function finalize(address pair) external nonReentrant onlyCreator {
+    function finalize(address pair) external nonReentrant {
         require(pair != address(0), "RuyiSale: zero pair");
         require(!finalized, "RuyiSale: finalized");
         require(!cancelled, "RuyiSale: cancelled");
@@ -254,6 +254,11 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
             remainingSaleSupply == 0 || (saleDeadline > 0 && block.timestamp > saleDeadline),
             "RuyiSale: active"
         );
+
+        // 如果时间还没到，只有创建者可以操作；时间到了后任何人都能触发开盘
+        if (!(saleDeadline > 0 && block.timestamp > saleDeadline)) {
+            require(msg.sender == creator, "RuyiSale: only creator");
+        }
 
         uint256 unsoldTokens = remainingSaleSupply;
         uint256 proceeds = nativeRaised;

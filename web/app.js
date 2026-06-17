@@ -655,8 +655,6 @@ function updateStats() {
   const totalBurned = sumPools("burned");
   const dividendReserve = sumPools("dividendReserve");
   const dividendsDistributed = sumPools("dividendsDistributed");
-  const platformTaxShare = formatBps(state.platformTaxShareBps);
-
   setText("[data-stat='projectCount']", formatCount(projectCount));
   setText("[data-stat='projectCountHero']", formatCount(projectCount));
   setText("[data-stat='evolvedCount']", formatCount(evolvedCount));
@@ -665,8 +663,6 @@ function updateStats() {
   setText("[data-stat='totalBurnedHero']", formatToken(totalBurned));
   setText("[data-stat='dividendReserve']", formatToken(dividendReserve));
   setText("[data-stat='dividendsDistributed']", formatToken(dividendsDistributed));
-  setText("[data-stat='platformTaxShare']", platformTaxShare);
-  setText("[data-tax-platform]", platformTaxShare);
 
   setText("[data-stage-count='all']", formatCount(projectCount));
   setText("[data-stage-count='0']", formatCount(byStage[0]));
@@ -911,8 +907,6 @@ function renderSelectedProject(project) {
   setText("[data-selected-aura-label]", `${formatToken(project.aura, project.symbol)} / ${formatToken(project.auraThreshold, project.symbol)}`);
   setText("[data-tax-buy]", formatBps(project.buyTaxBps));
   setText("[data-tax-sell]", formatBps(project.sellTaxBps));
-  setText("[data-tax-platform]", formatBps(project.platformTaxShareBps));
-  setText("[data-stat='platformTaxShare']", formatBps(project.platformTaxShareBps));
   renderSalePanel(project);
   renderAdminTools(project);
   updateSelectedActionState(project);
@@ -933,7 +927,7 @@ function renderSalePanel(project) {
   const isSaleCreator = hasSale && state.account && sameAddress(state.account, sale.creator);
   const isProjectCreator = Boolean(project && state.account && sameAddress(state.account, project.creator));
   const canDirectOpen = Boolean(project && !hasSale && !project.tradingEnabled && isProjectCreator);
-  const canOpenTrading = (canFinalize && isSaleCreator) || canDirectOpen;
+  const canOpenTrading = (canFinalize && (isSaleCreator || saleDeadlineExpired(sale))) || canDirectOpen;
   const saleHint = salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirectOpen, isSaleCreator, isProjectCreator });
 
   $$("[data-sale-panel]").forEach((panel) => {
@@ -1034,7 +1028,7 @@ function salePanelHint({ project, hasSale, status, canBuy, canFinalize, canDirec
   if (status === "白名单 Mint") return canBuy ? "当前为白名单 Mint 阶段，你的钱包已在名单内。" : "当前为白名单 Mint 阶段，未在名单内的钱包暂不能 Mint。";
   if (canBuy) return "当前可 Mint，支付的 BNB 会和加池 Token 自动加入 Pancake，LP 默认进入黑洞。";
   if (canFinalize && isSaleCreator) return "Mint 已结束，创建者可填写交易对地址并确认开盘。";
-  if (status === "可开盘") return "Mint 已结束，等待项目创建者填写交易对地址开盘。";
+  if (status === "可开盘") return "Mint 截止时间已到，任何人都可以填写交易对地址并确认开盘。";
   if (status === "已取消") return "该 Mint 发射未开始且已取消，剩余 Token 可由创建者取回。";
   return "当前状态暂不能操作，请等待 Mint 结束或刷新链上数据。";
 }
@@ -1540,13 +1534,12 @@ async function createBeast(event) {
   const auraThreshold = parseTokenAmount(data.get("auraThreshold"));
   const saleSupply = parseTokenAmount(data.get("saleSupply"));
   const saleEnabled = saleSupply > ZERO;
-  const liquidityReceiverInput = String(data.get("fundsReceiver") || "").trim();
   let mintPrice = ZERO;
   let maxMintPerWallet = ZERO;
   let whitelistMintLimit = ZERO;
   let whitelistEnabled = false;
   let saleDeadline = ZERO;
-  let fundsReceiver = ZERO_ADDRESS;
+  const fundsReceiver = ZERO_ADDRESS;
 
   const params = {
     beastName: data.get("beastName").trim(),
@@ -1580,12 +1573,6 @@ async function createBeast(event) {
       }
       if (whitelistMintLimit > saleSupply) {
         throw new Error("白名单额度不能超过 Mint 池总数量");
-      }
-      if (liquidityReceiverInput) {
-        if (!ethers.isAddress(liquidityReceiverInput)) {
-          throw new Error("LP 接收地址格式不正确");
-        }
-        fundsReceiver = liquidityReceiverInput;
       }
       params.mintPrice = mintPrice;
       params.maxMintPerWallet = maxMintPerWallet;
