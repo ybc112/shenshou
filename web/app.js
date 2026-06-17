@@ -1424,6 +1424,14 @@ function renderAdminTools(project) {
       ? `${shortAddress(salePair)}${project.sale?.launchPairMarked ? "" : " 未标记"}`
       : "未生成";
     const lpReceiver = project.sale?.liquidityReceiver || dex.liquidityReceiver || ZERO_ADDRESS;
+    const defaultDexRouter = dex.router && !sameAddress(dex.router, ZERO_ADDRESS)
+      ? dex.router
+      : project.sale?.liquidityRouter && !sameAddress(project.sale.liquidityRouter, ZERO_ADDRESS)
+        ? project.sale.liquidityRouter
+        : PANCAKE_V2_ROUTER;
+    const defaultDexPair = dex.pair && !sameAddress(dex.pair, ZERO_ADDRESS) ? dex.pair : salePair;
+    const defaultNativePair = dex.enabled ? dex.nativePair : true;
+    const defaultBurnBuyback = dex.enabled ? dex.burnBuyback : true;
 
     container.innerHTML = `
       <section class="admin-access-panel">
@@ -1477,18 +1485,18 @@ function renderAdminTools(project) {
         <div class="dex-summary">
           <div><span>扣税 Pair</span><strong title="${escapeHtml(salePair)}">${salePairLabel}</strong></div>
           <div><span>LP 接收</span><strong title="${escapeHtml(lpReceiver)}">${lpReceiverLabel(lpReceiver)}</strong></div>
-          <div><span>自动路由</span><strong>${shortAddress(dex.router)}</strong></div>
-          <div><span>自动 Pair</span><strong>${shortAddress(dex.pair)}</strong></div>
+          <div><span>自动路由</span><strong>${shortAddress(defaultDexRouter)}</strong></div>
+          <div><span>自动 Pair</span><strong>${shortAddress(defaultDexPair)}</strong></div>
           <div><span>自动回购</span><strong>${formatBps(dex.autoBuybackBps)}</strong></div>
           <div><span>自动加池</span><strong>${formatBps(dex.autoLiquidityBps)}</strong></div>
         </div>
         <form class="admin-form dex-form" data-dex-config-form>
-          <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(dex.router)}" placeholder="DEX Router" ${disabled} /></label>
-          <label><span>交易对地址</span><input name="pair" type="text" value="${addressInputValue(dex.pair)}" placeholder="Pair 地址" ${disabled} /></label>
+          <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(defaultDexRouter)}" placeholder="默认 Pancake V2" ${disabled} /></label>
+          <label><span>交易对地址</span><input name="pair" type="text" value="${addressInputValue(defaultDexPair)}" placeholder="开盘后自动识别，可留空" ${disabled} /></label>
           <label><span>配对 Token</span><input name="pairedToken" type="text" value="${addressInputValue(dex.pairedToken)}" placeholder="原生币交易对可留空" ${disabled} /></label>
           <label><span>回购接收地址</span><input name="buybackRecipient" type="text" value="${addressInputValue(dex.buybackRecipient)}" placeholder="销毁回购可留空" ${disabled} /></label>
-          <label class="check-field"><input name="nativePair" type="checkbox" ${dex.nativePair ? "checked" : ""} ${disabled} /><span>原生币交易对</span></label>
-          <label class="check-field"><input name="burnBuyback" type="checkbox" ${dex.burnBuyback ? "checked" : ""} ${disabled} /><span>回购后销毁</span></label>
+          <label class="check-field"><input name="nativePair" type="checkbox" ${defaultNativePair ? "checked" : ""} ${disabled} /><span>原生币交易对</span></label>
+          <label class="check-field"><input name="burnBuyback" type="checkbox" ${defaultBurnBuyback ? "checked" : ""} ${disabled} /><span>回购后销毁</span></label>
           <label class="check-field"><input name="enabled" type="checkbox" ${dex.enabled ? "checked" : ""} ${disabled} /><span>启用 DEX</span></label>
           <button class="outline-button" type="submit" ${disabled}><i data-lucide="save"></i><span>保存 DEX 配置</span></button>
         </form>
@@ -2647,9 +2655,11 @@ async function saveDexConfig(event) {
     const nativePair = data.get("nativePair") === "on";
     const burnBuyback = data.get("burnBuyback") === "on";
     const enabled = data.get("enabled") === "on";
-    const router = normalizeAddressInput(data.get("router"), ZERO_ADDRESS);
+    const salePair = project.sale?.launchPair || ZERO_ADDRESS;
+    const saleRouter = project.sale?.liquidityRouter || PANCAKE_V2_ROUTER;
+    const router = normalizeAddressInput(data.get("router"), saleRouter);
     const pairedToken = normalizeAddressInput(data.get("pairedToken"), ZERO_ADDRESS);
-    const pair = normalizeAddressInput(data.get("pair"), ZERO_ADDRESS);
+    const pair = normalizeAddressInput(data.get("pair"), salePair);
     const liquidityReceiver = DEAD_ADDRESS;
     const buybackRecipient = normalizeAddressInput(data.get("buybackRecipient"), ZERO_ADDRESS);
 
