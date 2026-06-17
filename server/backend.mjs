@@ -31,7 +31,7 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/assets") {
     try {
       const body = await readBody(request);
-      const asset = await saveDataUrlAsset(body.dataUrl);
+      const asset = await saveDataUrlAsset(body.dataUrl, request);
       sendJson(response, 201, { ok: true, ...asset });
     } catch (error) {
       sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -53,7 +53,7 @@ server.listen(port, () => {
   console.log(`Web dir: ${webDir}`);
 });
 
-async function saveDataUrlAsset(dataUrl) {
+async function saveDataUrlAsset(dataUrl, request) {
   const raw = String(dataUrl ?? "");
   const match = /^data:(image\/(?:png|jpeg|jpg|webp|gif|svg\+xml));base64,([a-zA-Z0-9+/=]+)$/i.exec(raw);
   if (!match) {
@@ -75,7 +75,7 @@ async function saveDataUrlAsset(dataUrl) {
   }
 
   return {
-    url: `${publicBaseUrl()}/api/assets/${filename}`,
+    url: `${publicBaseUrl(request)}/api/assets/${filename}`,
     mimeType,
     bytes: bytes.length,
   };
@@ -102,10 +102,18 @@ async function sendAsset(response, pathname) {
   fs.createReadStream(filePath).pipe(response);
 }
 
-function publicBaseUrl() {
+function publicBaseUrl(request) {
   const configured = String(process.env.PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
   if (configured) return configured;
+  const proto = firstHeaderValue(request.headers["x-forwarded-proto"]) || (request.socket.encrypted ? "https" : "http");
+  const host = firstHeaderValue(request.headers["x-forwarded-host"]) || firstHeaderValue(request.headers.host);
+  if (host) return `${proto}://${host}`.replace(/\/+$/, "");
   return `http://localhost:${port}`;
+}
+
+function firstHeaderValue(value) {
+  if (Array.isArray(value)) return String(value[0] ?? "").split(",")[0].trim();
+  return String(value ?? "").split(",")[0].trim();
 }
 
 function normalizeAssetMimeType(mimeType) {

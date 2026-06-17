@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: shenshou
+    runtime: static
+    buildCommand: npm install
+    staticPublishPath: web
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: http://154.12.118.163:8787/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

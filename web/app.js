@@ -1,5 +1,5 @@
 const ethers = window.ethers;
-const BACKEND_URL = String(window.RUYI_CONFIG?.backendUrl || "").trim();
+const BACKEND_URL = String(window.RUYI_CONFIG?.backendUrl || "").trim().replace(/\/+$/, "");
 
 const LAUNCHPAD_ABI = [
   "function owner() view returns (address)",
@@ -1429,10 +1429,10 @@ function buildProjectMetadataURI(form, params, imageUrl) {
 }
 
 async function uploadImage(dataUrl) {
-  if (!dataUrl || !BACKEND_URL) return "";
+  if (!dataUrl) return "";
   try {
     showToast("正在上传头像...");
-    const response = await fetch(`${BACKEND_URL}/api/assets`, {
+    const response = await fetch(apiUrl("/api/assets"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ dataUrl }),
@@ -1442,10 +1442,27 @@ async function uploadImage(dataUrl) {
       throw new Error(err.error || "上传失败");
     }
     const result = await response.json();
-    return result.url || "";
+    return normalizeUploadedAssetUrl(result.url || "");
   } catch (error) {
     console.error("Upload failed:", error);
     showToast(`头像上传失败：${error.message || error}`, "error");
+    return "";
+  }
+}
+
+function apiUrl(path) {
+  return `${BACKEND_URL}${path}`;
+}
+
+function normalizeUploadedAssetUrl(url) {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (window.location.protocol === "https:" && parsed.protocol === "http:" && parsed.pathname.startsWith("/api/assets/")) {
+      return `${window.location.origin}${parsed.pathname}`;
+    }
+    return parsed.href;
+  } catch {
     return "";
   }
 }
