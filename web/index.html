@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-whitelist-click-fix" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-mobile-menu-fix" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -175,7 +175,14 @@
                   <div><span>白名单额度</span><strong data-sale-whitelist-quota>--</strong></div>
                   <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
-                <form class="sale-form" data-sale-buy-form>
+                <div class="sale-section-menu" role="tablist" aria-label="Mint 发射菜单">
+                  <button class="active" type="button" data-sale-tab="mint" aria-selected="true">Mint</button>
+                  <button type="button" data-sale-tab="whitelist" aria-selected="false">白名单</button>
+                  <button type="button" data-sale-tab="liquidity" aria-selected="false">加池</button>
+                  <button type="button" data-sale-tab="open" aria-selected="false">开盘</button>
+                  <button type="button" data-sale-tab="actions" aria-selected="false">操作</button>
+                </div>
+                <form class="sale-form sale-section active" data-sale-section="mint" data-sale-buy-form>
                   <label><span>Mint 份数</span><input name="mintQuantity" type="number" min="1" step="1" value="1" placeholder="输入 Mint 份数" /></label>
                   <div class="mint-shortcuts" aria-label="Mint 份数快捷选择">
                     <button type="button" data-mint-quantity="1">1份</button>
@@ -185,24 +192,24 @@
                   </div>
                   <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>立即 Mint</span></button>
                 </form>
-                <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
+                <form class="sale-form sale-liquidity-form sale-section" data-sale-section="liquidity" data-sale-liquidity-form>
                   <label><span>Pancake Router</span><input name="router" type="text" placeholder="Pancake V2 Router" /></label>
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
-                <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                <form class="sale-form sale-whitelist-form sale-section" data-sale-section="whitelist" data-sale-whitelist-form>
                   <p class="sale-form-note form-wide" data-sale-whitelist-note>连接项目创建钱包后可配置白名单。</p>
                   <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
                   <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
                   <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
                   <button class="outline-button" type="submit"><i data-lucide="list-plus"></i><span>更新白名单</span></button>
                 </form>
-                <form class="sale-form sale-owner-form" data-sale-owner-form>
+                <form class="sale-form sale-owner-form sale-section" data-sale-section="open" data-sale-owner-form>
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
                 </form>
                 <p class="sale-hint" data-sale-hint>请选择神兽后查看 Mint 和开盘状态。</p>
-                <div class="button-row sale-actions">
+                <div class="button-row sale-actions sale-section" data-sale-section="actions">
                   <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
@@ -453,7 +460,7 @@
           </div>
           <div class="rank-layout">
             <section class="rank-table-card">
-              <table class="data-table">
+              <table class="data-table rank-table">
                 <thead>
                   <tr>
                     <th>排名</th>
@@ -512,7 +519,14 @@
                   <div><span>白名单额度</span><strong data-sale-whitelist-quota>--</strong></div>
                   <div><span>名单地址数</span><strong data-sale-whitelist-accounts>--</strong></div>
                 </div>
-                <form class="sale-form" data-sale-buy-form>
+                <div class="sale-section-menu" role="tablist" aria-label="Mint 发射菜单">
+                  <button class="active" type="button" data-sale-tab="mint" aria-selected="true">Mint</button>
+                  <button type="button" data-sale-tab="whitelist" aria-selected="false">白名单</button>
+                  <button type="button" data-sale-tab="liquidity" aria-selected="false">加池</button>
+                  <button type="button" data-sale-tab="open" aria-selected="false">开盘</button>
+                  <button type="button" data-sale-tab="actions" aria-selected="false">操作</button>
+                </div>
+                <form class="sale-form sale-section active" data-sale-section="mint" data-sale-buy-form>
                   <label><span>Mint 份数</span><input name="mintQuantity" type="number" min="1" step="1" value="1" placeholder="输入 Mint 份数" /></label>
                   <div class="mint-shortcuts" aria-label="Mint 份数快捷选择">
                     <button type="button" data-mint-quantity="1">1份</button>
@@ -522,24 +536,24 @@
                   </div>
                   <button class="gold-button" type="submit"><i data-lucide="gem"></i><span>立即 Mint</span></button>
                 </form>
-                <form class="sale-form sale-liquidity-form" data-sale-liquidity-form>
+                <form class="sale-form sale-liquidity-form sale-section" data-sale-section="liquidity" data-sale-liquidity-form>
                   <label><span>Pancake Router</span><input name="router" type="text" placeholder="Pancake V2 Router" /></label>
                   <label><span>加池比例</span><input name="liquidityTokenBps" type="number" min="1" max="10000" step="1" value="10000" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="flame"></i><span>配置 Mint 加池</span></button>
                 </form>
-                <form class="sale-form sale-whitelist-form" data-sale-whitelist-form>
+                <form class="sale-form sale-whitelist-form sale-section" data-sale-section="whitelist" data-sale-whitelist-form>
                   <p class="sale-form-note form-wide" data-sale-whitelist-note>连接项目创建钱包后可配置白名单。</p>
                   <label class="form-wide"><span>白名单地址</span><textarea name="accounts" rows="2" placeholder="每行一个钱包地址，可批量粘贴"></textarea></label>
                   <label class="check-field"><input name="enabled" type="checkbox" checked /><span>启用白名单</span></label>
                   <label class="check-field"><input name="listed" type="checkbox" checked /><span>加入名单</span></label>
                   <button class="outline-button" type="submit"><i data-lucide="list-plus"></i><span>更新白名单</span></button>
                 </form>
-                <form class="sale-form sale-owner-form" data-sale-owner-form>
+                <form class="sale-form sale-owner-form sale-section" data-sale-section="open" data-sale-owner-form>
                   <label><span>交易对地址</span><input name="pair" type="text" placeholder="填写 DEX 交易对地址后开盘" /></label>
                   <button class="outline-button" type="submit"><i data-lucide="unlock"></i><span>确认开盘</span></button>
                 </form>
                 <p class="sale-hint" data-sale-hint>请选择神兽后查看 Mint 和开盘状态。</p>
-                <div class="button-row sale-actions">
+                <div class="button-row sale-actions sale-section" data-sale-section="actions">
                   <button class="outline-button" type="button" data-action="cancel-sale"><i data-lucide="ban"></i><span>取消发射</span></button>
                   <button class="outline-button" type="button" data-action="withdraw-cancelled-tokens"><i data-lucide="archive-restore"></i><span>取回剩余</span></button>
                 </div>
@@ -667,7 +681,7 @@
             <article class="help-card">
               <i data-lucide="settings-2"></i>
               <h2>项目方怎样运营</h2>
-              <p>发射台管理员可在兽巢详情里配置奖励参数、手动开奖、DEX 路由、回购地址、自动回购比例和自动加池比例。</p>
+              <p>谁在平台创建并发射了这个币，谁的钱包就是项目管理钱包。白名单、奖励参数、手动开奖、DEX 路由、回购地址、自动回购比例和自动加池比例都由项目创建钱包配置。</p>
             </article>
             <article class="help-card">
               <i data-lucide="shield-check"></i>
@@ -688,6 +702,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
-    <script src="./app.js?v=20260617-whitelist-click-fix"></script>
+    <script src="./app.js?v=20260617-mobile-menu-fix"></script>
   </body>
 </html>

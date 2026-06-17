@@ -181,7 +181,7 @@ describe("Ruyi Beast Launchpad", function () {
     await token.connect(creator).enableTrading();
     await token.connect(pair).transfer(alice.address, ethers.parseEther("1000"));
 
-    await launchpad.connect(owner).setRewardConfig(
+    await launchpad.connect(creator).setRewardConfig(
       tokenAddress,
       10000,
       5000,
@@ -231,7 +231,7 @@ describe("Ruyi Beast Launchpad", function () {
     const dead = "0x000000000000000000000000000000000000dEaD";
 
     assert.equal(await launchpad.isProjectOperator(tokenAddress, creator.address), true);
-    assert.equal(await launchpad.isProjectOperator(tokenAddress, owner.address), true);
+    assert.equal(await launchpad.isProjectOperator(tokenAddress, owner.address), false);
     assert.equal(await launchpad.isProjectOperator(tokenAddress, alice.address), false);
 
     await launchpad.connect(creator).setEvolutionPayoutConfig(tokenAddress, 2500, 7500);
@@ -310,10 +310,10 @@ describe("Ruyi Beast Launchpad", function () {
       /not project operator/
     );
 
-    await launchpad.connect(owner).setEvolutionPayoutConfig(tokenAddress, 5000, 5000);
-    const ownerUpdate = await vault.evolutionPayoutConfigs(tokenAddress);
-    assert.equal(ownerUpdate.burnBps, 5000n);
-    assert.equal(ownerUpdate.rewardDividendBps, 5000n);
+    await assert.rejects(
+      launchpad.connect(owner).setEvolutionPayoutConfig(tokenAddress, 5000, 5000),
+      /not project operator/
+    );
   });
 
   it("locks trading controls after launch opens", async function () {
@@ -615,7 +615,7 @@ describe("Ruyi Beast Launchpad", function () {
     const routerAddress = await router.getAddress();
 
     await token.connect(creator).transfer(routerAddress, ethers.parseEther("10"));
-    await launchpad.connect(owner).setDexConfig(
+    await launchpad.connect(creator).setDexConfig(
       tokenAddress,
       routerAddress,
       ethers.ZeroAddress,
@@ -627,7 +627,17 @@ describe("Ruyi Beast Launchpad", function () {
       true
     );
 
-    await launchpad.connect(owner).executeNativeBuyback(
+    await assert.rejects(
+      launchpad.connect(owner).executeNativeBuyback(
+        tokenAddress,
+        ethers.parseEther("1"),
+        latest.timestamp + 3600,
+        { value: ethers.parseEther("0.1") }
+      ),
+      /not project operator/
+    );
+
+    await launchpad.connect(creator).executeNativeBuyback(
       tokenAddress,
       ethers.parseEther("1"),
       latest.timestamp + 3600,
@@ -636,7 +646,7 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.balanceOf("0x000000000000000000000000000000000000dEaD"), ethers.parseEther("1"));
 
     const poolsBefore = await vault.poolBalances(tokenAddress);
-    await launchpad.connect(owner).executeAddLiquidityNative(
+    await launchpad.connect(creator).executeAddLiquidityNative(
       tokenAddress,
       ethers.parseEther("1"),
       0,
@@ -666,7 +676,7 @@ describe("Ruyi Beast Launchpad", function () {
     await token.connect(creator).transfer(routerAddress, ethers.parseEther("100"));
     await owner.sendTransaction({ to: routerAddress, value: ethers.parseEther("100") });
 
-    await launchpad.connect(owner).setDexConfig(
+    await launchpad.connect(creator).setDexConfig(
       tokenAddress,
       routerAddress,
       ethers.ZeroAddress,
@@ -677,7 +687,7 @@ describe("Ruyi Beast Launchpad", function () {
       true,
       true
     );
-    await launchpad.connect(owner).setDexAutomationConfig(
+    await launchpad.connect(creator).setDexAutomationConfig(
       tokenAddress,
       5000,
       5000,

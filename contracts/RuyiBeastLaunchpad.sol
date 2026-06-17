@@ -127,7 +127,6 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     mapping(address => uint256) public tokenToProjectId;
     mapping(address => uint256[]) private _creatorProjects;
     mapping(uint256 => address) public projectSaleVault;
-    mapping(address => bool) public dexOperators;
 
     event BeastCreated(
         uint256 indexed projectId,
@@ -157,12 +156,6 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     event DefaultMintLiquidityRouterUpdated(address indexed router);
     event RequiredTokenSuffixUpdated(uint16 indexed suffix);
     event NativeWithdrawn(address indexed to, uint256 amount);
-    event DexOperatorUpdated(address indexed operator, bool enabled);
-
-    modifier onlyDexExecutor() {
-        require(msg.sender == owner() || dexOperators[msg.sender], "RuyiLaunchpad: not dex executor");
-        _;
-    }
 
     constructor(
         address platformTreasury_,
@@ -423,12 +416,6 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         return vault.claimLuckyNumberReward(token, msg.sender, round);
     }
 
-    function setDexOperator(address operator, bool enabled) external onlyOwner {
-        require(operator != address(0), "RuyiLaunchpad: zero operator");
-        dexOperators[operator] = enabled;
-        emit DexOperatorUpdated(operator, enabled);
-    }
-
     function setDexConfig(
         address token,
         address router,
@@ -468,7 +455,7 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     function processAutoDex(
         address token
     ) external returns (uint256 processedAmount, uint256 buybackOut, uint256 liquidity) {
-        _requireProjectOperatorOrDexExecutor(token);
+        _requireProjectOperator(token);
         return vault.processAutoDex(token);
     }
 
@@ -476,8 +463,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         address token,
         uint256 amountOutMin,
         uint256 deadline
-    ) external payable nonReentrant onlyDexExecutor returns (uint256 amountOut) {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external payable nonReentrant returns (uint256 amountOut) {
+        _requireProjectOperator(token);
         return vault.executeNativeBuyback{value: msg.value}(token, amountOutMin, deadline);
     }
 
@@ -486,8 +473,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint256 amountIn,
         uint256 amountOutMin,
         uint256 deadline
-    ) external nonReentrant onlyDexExecutor returns (uint256 amountOut) {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external nonReentrant returns (uint256 amountOut) {
+        _requireProjectOperator(token);
         return vault.executeTokenBuyback(token, amountIn, amountOutMin, deadline);
     }
 
@@ -501,10 +488,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         external
         payable
         nonReentrant
-        onlyDexExecutor
         returns (uint256 amountToken, uint256 amountNative, uint256 liquidity)
     {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        _requireProjectOperator(token);
         return vault.executeAddLiquidityNative{value: msg.value}(
             token,
             tokenAmount,
@@ -524,10 +510,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     )
         external
         nonReentrant
-        onlyDexExecutor
         returns (uint256 amountToken, uint256 amountPaired, uint256 liquidity)
     {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        _requireProjectOperator(token);
         return vault.executeAddLiquidityToken(
             token,
             tokenAmount,
@@ -538,21 +523,13 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         );
     }
 
-    function withdrawVaultNative(address payable to, uint256 amount) external onlyOwner {
-        vault.withdrawNative(to, amount);
-    }
-
-    function withdrawVaultExternalToken(address token, address to, uint256 amount) external onlyOwner {
-        vault.withdrawExternalToken(token, to, amount);
-    }
-
-    function withdrawTreasuryPool(address token, address to, uint256 amount) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    function withdrawTreasuryPool(address token, address to, uint256 amount) external {
+        _requireProjectOperator(token);
         vault.withdrawTreasuryPool(token, to, amount);
     }
 
-    function withdrawOperationalPool(address token, address to, uint8 poolType, uint256 amount) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    function withdrawOperationalPool(address token, address to, uint8 poolType, uint256 amount) external {
+        _requireProjectOperator(token);
         vault.withdrawOperationalPool(token, to, poolType, amount);
     }
 
@@ -598,20 +575,12 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         }
 
         BeastProject storage project = _projects[tokenToProjectId[token]];
-        return account == owner() || account == project.creator;
+        return account == project.creator;
     }
 
     function _requireProjectOperator(address token) private view {
         require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
         require(isProjectOperator(token, msg.sender), "RuyiLaunchpad: not project operator");
-    }
-
-    function _requireProjectOperatorOrDexExecutor(address token) private view {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
-        require(
-            isProjectOperator(token, msg.sender) || dexOperators[msg.sender],
-            "RuyiLaunchpad: not project operator"
-        );
     }
 
     function _forwardCreationFee() private {

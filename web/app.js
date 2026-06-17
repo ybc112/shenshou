@@ -3,7 +3,6 @@ const BACKEND_URL = String(window.RUYI_CONFIG?.backendUrl || "").trim().replace(
 const VANITY_SUFFIX = String(window.RUYI_CONFIG?.vanitySuffix || "dddd").trim().replace(/^0x/i, "").toLowerCase();
 
 const LAUNCHPAD_ABI = [
-  "function owner() view returns (address)",
   "function vault() view returns (address)",
   "function creationFee() view returns (uint256)",
   "function projectCount() view returns (uint256)",
@@ -173,7 +172,6 @@ const state = {
   launchpad: null,
   vault: null,
   vaultAddress: "",
-  launchpadOwner: "",
   projects: [],
   selectedProjectId: null,
   stageFilter: "all",
@@ -565,16 +563,12 @@ function sameAddress(left, right) {
   return String(left || "").toLowerCase() === String(right || "").toLowerCase();
 }
 
-function isLaunchpadOwner() {
-  return Boolean(state.account && state.launchpadOwner && sameAddress(state.account, state.launchpadOwner));
-}
-
 function isProjectCreator(project) {
   return Boolean(state.account && project?.creator && sameAddress(state.account, project.creator));
 }
 
 function isProjectAdmin(project) {
-  return isLaunchpadOwner() || isProjectCreator(project);
+  return isProjectCreator(project);
 }
 
 function requireSelectedProject(message = "请先选择一只神兽。") {
@@ -588,7 +582,7 @@ function requireSelectedProject(message = "请先选择一只神兽。") {
 
 function requireProjectAdminWallet(project) {
   if (!isProjectAdmin(project)) {
-    showToast("请连接项目创建钱包或发射台管理员钱包后再操作。", "error");
+    showToast("请连接该项目的创建钱包后再操作。", "error");
     return false;
   }
   return true;
@@ -778,7 +772,6 @@ async function connectContracts() {
   state.vaultAddress = await state.launchpad.vault();
   state.vault = new ethers.Contract(state.vaultAddress, VAULT_ABI, state.provider);
   state.creationFee = await state.launchpad.creationFee();
-  state.launchpadOwner = await state.launchpad.owner().catch(() => ZERO_ADDRESS);
 
   const network = await state.provider.getNetwork();
   setText("[data-stat='networkName']", network.name === "unknown" ? `Chain ${network.chainId}` : network.name);
@@ -802,7 +795,6 @@ function updateConnectionStatus(message, ok) {
 function clearChainData() {
   state.projects = [];
   state.selectedProjectId = null;
-  state.launchpadOwner = "";
   updateStats();
   renderAllViews();
   updateRewardActionState(null);
@@ -1449,11 +1441,11 @@ function whitelistStatusText(sale) {
 
 function whitelistConfigHint({ hasSale, sale, project, isSaleCreator, canConfigureWhitelist }) {
   if (!hasSale) return "这个神兽没有开启 Mint 发射，不能配置白名单。";
-  if (canConfigureWhitelist) return "当前钱包是项目创建钱包，可以添加或移除白名单地址。";
+  if (canConfigureWhitelist) return "当前连接的是项目创建钱包，可以添加或移除白名单地址。";
   if (sale.finalized || project?.tradingEnabled) return "项目已经开盘，白名单阶段已结束，不能再修改名单。";
   if (sale.cancelled) return "这个 Mint 发射已取消，不能再修改白名单。";
   if (!state.account) return `请先连接项目创建钱包 ${shortAddress(sale.creator)} 后再添加白名单。`;
-  if (!isSaleCreator) return `当前钱包不是项目创建钱包，请切换到 ${shortAddress(sale.creator)}。`;
+  if (!isSaleCreator) return `当前钱包不是项目创建钱包，请切换到 ${shortAddress(sale.creator)} 后再配置白名单。`;
   return "当前状态暂不能配置白名单。";
 }
 
@@ -1468,22 +1460,17 @@ function renderAdminTools(project) {
     const reward = project.rewardConfig || normalizeRewardConfig(null);
     const dex = project.dexConfig || normalizeDexConfig(null);
     const airdropNumbs = project.airdropNumbs ?? 0n;
-    const ownerReady = isLaunchpadOwner();
-    const creatorReady = isProjectCreator(project);
     const adminReady = isProjectAdmin(project);
     const disabled = adminReady ? "" : "disabled";
-    const ownerWallet = state.launchpadOwner && !sameAddress(state.launchpadOwner, ZERO_ADDRESS)
-      ? shortAddress(state.launchpadOwner)
-      : "管理员钱包";
     const creatorWallet = project.creator && !sameAddress(project.creator, ZERO_ADDRESS)
       ? shortAddress(project.creator)
       : "项目创建钱包";
-    const adminBadge = adminReady ? (creatorReady ? "项目方已连接" : "管理员已连接") : "项目方/管理员";
+    const adminBadge = adminReady ? "项目方已连接" : "项目创建钱包";
     const adminHint = adminReady
-      ? "当前钱包有该项目管理权限，下面的机制参数可以保存上链。"
+      ? "当前连接的是项目创建钱包，下面这些机制参数可以保存上链。"
       : state.account
-        ? `当前钱包不是这个项目的创建地址，请切换到项目方 ${creatorWallet} 或平台管理员 ${ownerWallet} 后再设置。`
-        : `请先连接项目方 ${creatorWallet} 或平台管理员 ${ownerWallet}。`;
+        ? `当前钱包不是这个项目的创建地址，请切换到 ${creatorWallet} 后再设置。`
+        : `请先连接项目创建钱包 ${creatorWallet}。`;
     const salePair = project.sale?.launchPair || ZERO_ADDRESS;
     const salePairLabel = salePair && !sameAddress(salePair, ZERO_ADDRESS)
       ? `${shortAddress(salePair)}${project.sale?.launchPairMarked ? "" : " 未标记"}`
@@ -1521,10 +1508,10 @@ function renderAdminTools(project) {
     container.innerHTML = `
       <section class="admin-access-panel">
         <div>
-          <span>管理权限</span>
-          <strong>${adminReady ? "可操作" : "未连接项目方"}</strong>
+          <span>机制权限</span>
+          <strong>${adminReady ? "项目方可操作" : "未连接项目方"}</strong>
         </div>
-        <p>${adminHint} 进化、奖励、自动回购/加池属于项目机制配置，创建地址和平台管理员都能调整；买卖税率、扣税交易对和限额属于 Token 控制项，开盘后已锁定。</p>
+        <p>${adminHint} 进化、奖励、空投裂变、自动回购/加池和白名单都归项目创建钱包管理；平台部署钱包只负责发射台参数和平台费，不参与项目日常配置。买卖税率、扣税交易对和限额属于 Token 控制项，开盘后已锁定。</p>
       </section>
       <section class="admin-panel">
         <div class="admin-head">
@@ -1685,18 +1672,18 @@ function renderRankTable() {
       const pools = normalizePools(project.pools);
       return `
         <tr class="clickable-row" data-enter-project="${project.id}">
-          <td><strong class="table-rank">${index + 1}</strong></td>
-          <td>
+          <td data-label="排名"><strong class="table-rank">${index + 1}</strong></td>
+          <td data-label="神兽">
             <div class="table-beast">
               ${beastSigilMarkup(project, "table")}
               <span>${escapeHtml(project.beastName)}<small>${escapeHtml(project.symbol)}</small></span>
             </div>
           </td>
-          <td>${STAGE_NAMES[project.stage] || "未知"}</td>
-          <td>${project.progress.toFixed(2)}%</td>
-          <td>${formatToken(pools.reward + pools.dividendReserve, project.symbol)}</td>
-          <td>${formatToken(pools.treasury, project.symbol)}</td>
-          <td><button class="outline-button table-action" type="button" data-enter-project="${project.id}">查看</button></td>
+          <td data-label="阶段">${STAGE_NAMES[project.stage] || "未知"}</td>
+          <td data-label="灵气">${project.progress.toFixed(2)}%</td>
+          <td data-label="奖励池">${formatToken(pools.reward + pools.dividendReserve, project.symbol)}</td>
+          <td data-label="平台金库">${formatToken(pools.treasury, project.symbol)}</td>
+          <td data-label="操作"><button class="outline-button table-action" type="button" data-enter-project="${project.id}">查看</button></td>
         </tr>
       `;
     })
@@ -1839,7 +1826,6 @@ async function connectWallet() {
     state.launchpad = new ethers.Contract(state.launchpadAddress, LAUNCHPAD_ABI, state.provider);
     state.vaultAddress = await state.launchpad.vault();
     state.vault = new ethers.Contract(state.vaultAddress, VAULT_ABI, state.provider);
-    state.launchpadOwner = await state.launchpad.owner().catch(() => ZERO_ADDRESS);
     await loadProjects();
   }
 }
@@ -2551,7 +2537,7 @@ async function saveWhitelistConfig(event) {
     return;
   }
   if (!sameAddress(state.account, project.sale.creator)) {
-    showToast("只有神兽创建者可以配置白名单。", "error");
+    showToast(`白名单只能由项目创建钱包 ${shortAddress(project.sale.creator)} 配置。`, "error");
     return;
   }
 
@@ -2986,6 +2972,22 @@ function setActiveButton(button) {
   button.classList.add("active");
 }
 
+function setSaleTab(button) {
+  const panel = button.closest("[data-sale-panel]");
+  const target = button.dataset.saleTab;
+  if (!panel || !target) return;
+
+  $$("[data-sale-tab]", panel).forEach((item) => {
+    const active = item.dataset.saleTab === target;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", active ? "true" : "false");
+  });
+
+  $$("[data-sale-section]", panel).forEach((section) => {
+    section.classList.toggle("active", section.dataset.saleSection === target);
+  });
+}
+
 function bindEvents() {
   $$("[data-create-form]").forEach((form) => {
     form.addEventListener("submit", createBeast);
@@ -3050,6 +3052,12 @@ function bindEvents() {
       if (!enterTarget.closest("[data-reward-projects]")) {
         showPage("rank");
       }
+      return;
+    }
+
+    const saleTab = event.target.closest("[data-sale-tab]");
+    if (saleTab) {
+      setSaleTab(saleTab);
       return;
     }
 

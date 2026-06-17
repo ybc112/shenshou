@@ -1730,6 +1730,42 @@ input[type="file"]::file-selector-button {
   white-space: nowrap;
 }
 
+.sale-section-menu {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sale-section-menu button {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid rgba(217, 164, 68, 0.24);
+  border-radius: 8px;
+  padding: 0 8px;
+  background: rgba(7, 9, 17, 0.34);
+  color: #d6c8a4;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.sale-section-menu button.active {
+  border-color: rgba(245, 205, 114, 0.72);
+  background: linear-gradient(180deg, rgba(217, 164, 68, 0.24), rgba(217, 164, 68, 0.1));
+  color: #ffe5a0;
+}
+
+.sale-section {
+  display: none;
+}
+
+.sale-section.active {
+  display: grid;
+}
+
+.sale-actions.sale-section.active {
+  display: flex;
+}
+
 .sale-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2152,6 +2188,12 @@ input[type="file"]::file-selector-button {
   font-size: 13px;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.sale-whitelist-form[data-enabled="false"] .sale-form-note {
+  border-color: rgba(255, 178, 158, 0.34);
+  background: rgba(217, 109, 85, 0.12);
+  color: #ffd1c4;
 }
 
 .dex-summary {
@@ -3951,12 +3993,77 @@ body {
     padding-right: 12px;
   }
 
-  .rank-table-card .data-table {
-    min-width: 620px;
+  .sale-section-menu {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .rank-table-card {
+    overflow: visible;
+  }
+
+  .rank-table-card .rank-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+
+  .rank-table-card .rank-table thead {
+    display: none;
+  }
+
+  .rank-table-card .rank-table,
+  .rank-table-card .rank-table tbody,
+  .rank-table-card .rank-table tr,
+  .rank-table-card .rank-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .rank-table-card .rank-table tr {
+    border: 1px solid rgba(217, 164, 68, 0.18);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(7, 9, 17, 0.44);
+  }
+
+  .rank-table-card .rank-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 0;
+    padding: 7px 4px;
+    text-align: right;
+  }
+
+  .rank-table-card .rank-table td::before {
+    content: attr(data-label);
+    flex: 0 0 72px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-align: left;
+  }
+
+  .rank-table-card .rank-table .table-beast {
+    justify-content: flex-end;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .rank-table-card .rank-table .table-action {
+    width: 100%;
+    justify-content: center;
   }
 
   .rank-detail .detail-grid,
   .rank-detail .sale-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .sale-section-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
