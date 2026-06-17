@@ -1664,9 +1664,9 @@ function setAvatarError(upload, message) {
 
 async function createBeast(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   if (!(await ensureWritable())) return;
 
-  const form = event.currentTarget;
   const data = new FormData(form);
   let initialSupply = ZERO;
   const auraThreshold = ZERO;
@@ -1897,6 +1897,7 @@ function selectedSaleVault(signerOrProvider = state.provider) {
 
 async function buySale(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable())) return;
   if (!project.sale) {
@@ -1915,7 +1916,7 @@ async function buySale(event) {
     return;
   }
 
-  const data = new FormData(event.currentTarget);
+  const data = new FormData(form);
   let quantity = ZERO;
   try {
     quantity = parseShareCount(data.get("mintQuantity"));
@@ -1959,7 +1960,7 @@ async function buySale(event) {
     const tx = await saleVault.mint(quantity, { value: cost });
     await tx.wait();
     showToast("Mint 成功，BNB 已自动加池");
-    event.currentTarget.reset();
+    form.reset();
     await loadProjects();
     await renderIdentity();
   } catch (error) {
@@ -1970,6 +1971,7 @@ async function buySale(event) {
 
 async function saveMintLiquidityConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable())) return;
   if (!project.sale) {
@@ -1982,7 +1984,7 @@ async function saveMintLiquidityConfig(event) {
   }
 
   try {
-    const data = new FormData(event.currentTarget);
+    const data = new FormData(form);
     const router = normalizeAddressInput(data.get("router"), PANCAKE_V2_ROUTER);
     const liquidityReceiver = DEAD_ADDRESS;
     const liquidityTokenBps = Number(data.get("liquidityTokenBps") || 10000);
@@ -2017,6 +2019,7 @@ function parseAddressList(raw) {
 
 async function saveWhitelistConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable())) return;
   if (!project.sale) {
@@ -2029,7 +2032,7 @@ async function saveWhitelistConfig(event) {
   }
 
   try {
-    const data = new FormData(event.currentTarget);
+    const data = new FormData(form);
     const listed = Boolean(data.get("listed"));
     const enabled = Boolean(data.get("enabled"));
     const accounts = parseAddressList(data.get("accounts"));
@@ -2048,7 +2051,7 @@ async function saveWhitelistConfig(event) {
     }
 
     showToast("白名单配置已更新");
-    event.currentTarget.reset();
+    form.reset();
     await loadProjects();
     await renderIdentity();
   } catch (error) {
@@ -2059,11 +2062,12 @@ async function saveWhitelistConfig(event) {
 
 async function finalizeSale(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project) return;
   if (!(await ensureWritable())) return;
 
-  const pair = String(new FormData(event.currentTarget).get("pair") || "").trim();
+  const pair = String(new FormData(form).get("pair") || "").trim();
   if (!ethers.isAddress(pair)) {
     showToast("请输入有效的交易对地址。", "error");
     return;
@@ -2087,7 +2091,7 @@ async function finalizeSale(event) {
       await openTx.wait();
     }
     showToast("发射已开盘，交易权限已锁定");
-    event.currentTarget.reset();
+    form.reset();
     await loadProjects();
   } catch (error) {
     console.error(error);
@@ -2136,10 +2140,11 @@ async function withdrawCancelledTokens() {
 
 async function saveEvolutionConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
 
-  const data = new FormData(event.currentTarget);
+  const data = new FormData(form);
   try {
     const burnBps = parsePercentBps(data.get("burnBps"), "进化池销毁比例");
     const rewardDividendBps = parsePercentBps(data.get("rewardDividendBps"), "奖励池分红释放比例");
@@ -2158,10 +2163,11 @@ async function saveEvolutionConfig(event) {
 
 async function saveRewardConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
 
-  const data = new FormData(event.currentTarget);
+  const data = new FormData(form);
   try {
     const talismanChanceBps = parsePercentBps(data.get("talismanChance"), "灵符中奖率");
     const talismanPrizeBps = parsePercentBps(data.get("talismanPrize"), "灵符奖励比例");
@@ -2213,10 +2219,11 @@ async function openRewardRound() {
 
 async function saveDexConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
 
-  const data = new FormData(event.currentTarget);
+  const data = new FormData(form);
   try {
     const nativePair = data.get("nativePair") === "on";
     const burnBuyback = data.get("burnBuyback") === "on";
@@ -2257,10 +2264,11 @@ async function saveDexConfig(event) {
 
 async function saveDexAutomationConfig(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
 
-  const data = new FormData(event.currentTarget);
+  const data = new FormData(form);
   try {
     const autoBuybackBps = parsePercentBps(data.get("autoBuyback"), "自动回购比例");
     const autoLiquidityBps = parsePercentBps(data.get("autoLiquidity"), "自动加池比例");
