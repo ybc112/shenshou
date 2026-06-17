@@ -549,6 +549,14 @@ function isLaunchpadOwner() {
   return Boolean(state.account && state.launchpadOwner && sameAddress(state.account, state.launchpadOwner));
 }
 
+function isProjectCreator(project) {
+  return Boolean(state.account && project?.creator && sameAddress(state.account, project.creator));
+}
+
+function isProjectAdmin(project) {
+  return isLaunchpadOwner() || isProjectCreator(project);
+}
+
 function requireSelectedProject(message = "请先选择一只神兽。") {
   const project = selectedProject();
   if (!project) {
@@ -558,9 +566,9 @@ function requireSelectedProject(message = "请先选择一只神兽。") {
   return project;
 }
 
-function requireOwnerWallet() {
-  if (!isLaunchpadOwner()) {
-    showToast("请连接发射台管理员钱包后再操作。", "error");
+function requireProjectAdminWallet(project) {
+  if (!isProjectAdmin(project)) {
+    showToast("请连接项目创建钱包或发射台管理员钱包后再操作。", "error");
     return false;
   }
   return true;
@@ -1395,8 +1403,21 @@ function renderAdminTools(project) {
     const reward = project.rewardConfig || normalizeRewardConfig(null);
     const dex = project.dexConfig || normalizeDexConfig(null);
     const ownerReady = isLaunchpadOwner();
-    const disabled = ownerReady ? "" : "disabled";
-    const ownerBadge = ownerReady ? "管理员已连接" : "仅管理员";
+    const creatorReady = isProjectCreator(project);
+    const adminReady = isProjectAdmin(project);
+    const disabled = adminReady ? "" : "disabled";
+    const ownerWallet = state.launchpadOwner && !sameAddress(state.launchpadOwner, ZERO_ADDRESS)
+      ? shortAddress(state.launchpadOwner)
+      : "管理员钱包";
+    const creatorWallet = project.creator && !sameAddress(project.creator, ZERO_ADDRESS)
+      ? shortAddress(project.creator)
+      : "项目创建钱包";
+    const adminBadge = adminReady ? (creatorReady ? "项目方已连接" : "管理员已连接") : "项目方/管理员";
+    const adminHint = adminReady
+      ? "当前钱包有该项目管理权限，下面的机制参数可以保存上链。"
+      : state.account
+        ? `当前钱包不是这个项目的创建地址，请切换到项目方 ${creatorWallet} 或平台管理员 ${ownerWallet} 后再设置。`
+        : `请先连接项目方 ${creatorWallet} 或平台管理员 ${ownerWallet}。`;
     const dexStatus = dex.enabled ? "已启用" : "未启用";
     const salePair = project.sale?.launchPair || ZERO_ADDRESS;
     const salePairLabel = salePair && !sameAddress(salePair, ZERO_ADDRESS)
@@ -1405,11 +1426,18 @@ function renderAdminTools(project) {
     const lpReceiver = project.sale?.liquidityReceiver || dex.liquidityReceiver || ZERO_ADDRESS;
 
     container.innerHTML = `
+      <section class="admin-access-panel">
+        <div>
+          <span>管理权限</span>
+          <strong>${adminReady ? "可操作" : "未连接项目方"}</strong>
+        </div>
+        <p>${adminHint} 进化、奖励、自动回购/加池属于项目机制配置，创建地址和平台管理员都能调整；买卖税率、扣税交易对和限额属于 Token 控制项，开盘后已锁定。</p>
+      </section>
       <section class="admin-panel">
         <div class="admin-head">
           <div>
             <span>进化机制</span>
-            <strong>${ownerBadge}</strong>
+            <strong>${adminBadge}</strong>
           </div>
           <small>灵气值达到进化条件后，触发进化会按这里的比例销毁进化池，并释放奖励池给持币分红。</small>
         </div>
@@ -1423,7 +1451,7 @@ function renderAdminTools(project) {
         <div class="admin-head">
           <div>
             <span>奖励设置</span>
-            <strong>${ownerBadge}</strong>
+            <strong>${adminBadge}</strong>
           </div>
           <small>灵符奖励来自幸运池，本命号码奖励来自风险池。</small>
         </div>
@@ -2533,7 +2561,7 @@ async function saveEvolutionConfig(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   const data = new FormData(form);
   try {
@@ -2556,7 +2584,7 @@ async function saveRewardConfig(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   const data = new FormData(form);
   try {
@@ -2592,7 +2620,7 @@ async function saveRewardConfig(event) {
 
 async function openRewardRound() {
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   try {
     const launchpadWithSigner = state.launchpad.connect(state.signer);
@@ -2612,7 +2640,7 @@ async function saveDexConfig(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   const data = new FormData(form);
   try {
@@ -2657,7 +2685,7 @@ async function saveDexAutomationConfig(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   const data = new FormData(form);
   try {
@@ -2689,7 +2717,7 @@ async function saveDexAutomationConfig(event) {
 
 async function processAutoDex() {
   const project = requireSelectedProject();
-  if (!project || !(await ensureWritable()) || !requireOwnerWallet()) return;
+  if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
   try {
     const launchpadWithSigner = state.launchpad.connect(state.signer);

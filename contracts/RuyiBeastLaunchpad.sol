@@ -369,8 +369,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         address token,
         uint16 burnBps,
         uint16 rewardDividendBps
-    ) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external {
+        _requireProjectOperator(token);
         vault.setEvolutionPayoutConfig(token, burnBps, rewardDividendBps);
     }
 
@@ -382,8 +382,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint16 luckyModulo,
         uint256 minHoldAmount,
         bool enabled
-    ) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external {
+        _requireProjectOperator(token);
         vault.setRewardConfig(
             token,
             talismanChanceBps,
@@ -395,8 +395,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         );
     }
 
-    function openRewardRound(address token) external onlyOwner returns (uint256 round) {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    function openRewardRound(address token) external returns (uint256 round) {
+        _requireProjectOperator(token);
         return vault.openRewardRound(token);
     }
 
@@ -433,8 +433,8 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         bool nativePair,
         bool burnBuyback,
         bool enabled
-    ) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external {
+        _requireProjectOperator(token);
         vault.setDexConfig(
             token,
             router,
@@ -454,15 +454,15 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         uint16 autoLiquidityBps,
         uint256 autoProcessThreshold,
         uint256 autoProcessLimit
-    ) external onlyOwner {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external {
+        _requireProjectOperator(token);
         vault.setDexAutomationConfig(token, autoBuybackBps, autoLiquidityBps, autoProcessThreshold, autoProcessLimit);
     }
 
     function processAutoDex(
         address token
-    ) external onlyDexExecutor returns (uint256 processedAmount, uint256 buybackOut, uint256 liquidity) {
-        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+    ) external returns (uint256 processedAmount, uint256 buybackOut, uint256 liquidity) {
+        _requireProjectOperatorOrDexExecutor(token);
         return vault.processAutoDex(token);
     }
 
@@ -584,6 +584,28 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
 
     function getCreatorProjects(address creator) external view returns (uint256[] memory) {
         return _creatorProjects[creator];
+    }
+
+    function isProjectOperator(address token, address account) public view returns (bool) {
+        if (!isLaunchpadToken[token] || account == address(0)) {
+            return false;
+        }
+
+        BeastProject storage project = _projects[tokenToProjectId[token]];
+        return account == owner() || account == project.creator;
+    }
+
+    function _requireProjectOperator(address token) private view {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        require(isProjectOperator(token, msg.sender), "RuyiLaunchpad: not project operator");
+    }
+
+    function _requireProjectOperatorOrDexExecutor(address token) private view {
+        require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
+        require(
+            isProjectOperator(token, msg.sender) || dexOperators[msg.sender],
+            "RuyiLaunchpad: not project operator"
+        );
     }
 
     function _forwardCreationFee() private {

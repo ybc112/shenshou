@@ -223,6 +223,86 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(pools.risk, ethers.parseEther("2"));
   });
 
+  it("lets the project creator manage project mechanisms", async function () {
+    const { owner, creator, pair, alice, token, vault, launchpad } = await deployFixture();
+    const tokenAddress = await token.getAddress();
+    const dead = "0x000000000000000000000000000000000000dEaD";
+
+    assert.equal(await launchpad.isProjectOperator(tokenAddress, creator.address), true);
+    assert.equal(await launchpad.isProjectOperator(tokenAddress, owner.address), true);
+    assert.equal(await launchpad.isProjectOperator(tokenAddress, alice.address), false);
+
+    await launchpad.connect(creator).setEvolutionPayoutConfig(tokenAddress, 2500, 7500);
+    const evolution = await vault.evolutionPayoutConfigs(tokenAddress);
+    assert.equal(evolution.burnBps, 2500n);
+    assert.equal(evolution.rewardDividendBps, 7500n);
+
+    await launchpad.connect(creator).setRewardConfig(
+      tokenAddress,
+      2000,
+      1500,
+      1200,
+      8888,
+      ethers.parseEther("10"),
+      true
+    );
+    const reward = await vault.rewardConfigs(tokenAddress);
+    assert.equal(reward.talismanChanceBps, 2000n);
+    assert.equal(reward.talismanPrizeBps, 1500n);
+    assert.equal(reward.luckyPrizeBps, 1200n);
+    assert.equal(reward.luckyModulo, 8888n);
+    assert.equal(reward.minHoldAmount, ethers.parseEther("10"));
+    assert.equal(reward.enabled, true);
+
+    const round = await launchpad.connect(creator).openRewardRound.staticCall(tokenAddress);
+    await launchpad.connect(creator).openRewardRound(tokenAddress);
+    assert.equal(round, 1n);
+    assert.equal(await vault.talismanRound(tokenAddress), 1n);
+
+    const MockDexRouter = await ethers.getContractFactory("MockDexRouter");
+    const router = await MockDexRouter.deploy(ethers.Wallet.createRandom().address);
+    await router.waitForDeployment();
+    const routerAddress = await router.getAddress();
+
+    await launchpad.connect(creator).setDexConfig(
+      tokenAddress,
+      routerAddress,
+      ethers.ZeroAddress,
+      pair.address,
+      dead,
+      ethers.ZeroAddress,
+      true,
+      true,
+      true
+    );
+    await launchpad.connect(creator).setDexAutomationConfig(
+      tokenAddress,
+      6000,
+      4000,
+      ethers.parseEther("1"),
+      ethers.parseEther("3")
+    );
+    const dex = await vault.dexConfigs(tokenAddress);
+    assert.equal(dex.router, routerAddress);
+    assert.equal(dex.pair, pair.address);
+    assert.equal(dex.liquidityReceiver, dead);
+    assert.equal(dex.buybackRecipient, dead);
+    assert.equal(dex.autoBuybackBps, 6000n);
+    assert.equal(dex.autoLiquidityBps, 4000n);
+
+    await launchpad.connect(creator).processAutoDex(tokenAddress);
+
+    await assert.rejects(
+      launchpad.connect(alice).setEvolutionPayoutConfig(tokenAddress, 5000, 5000),
+      /not project operator/
+    );
+
+    await launchpad.connect(owner).setEvolutionPayoutConfig(tokenAddress, 5000, 5000);
+    const ownerUpdate = await vault.evolutionPayoutConfigs(tokenAddress);
+    assert.equal(ownerUpdate.burnBps, 5000n);
+    assert.equal(ownerUpdate.rewardDividendBps, 5000n);
+  });
+
   it("locks trading controls after launch opens", async function () {
     const { creator, pair, alice, bob, token } = await deployFixture();
 

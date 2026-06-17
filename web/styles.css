@@ -2014,6 +2014,38 @@ input[type="file"]::file-selector-button {
   gap: 12px;
 }
 
+.admin-access-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(217, 164, 68, 0.26);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(217, 164, 68, 0.12), rgba(7, 17, 24, 0.68));
+}
+
+.admin-access-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-access-panel span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-access-panel strong {
+  color: #ffe3a0;
+}
+
+.admin-access-panel p {
+  margin: 0;
+  color: #d3d8dc;
+  line-height: 1.75;
+  font-weight: 700;
+}
+
 .admin-panel {
   display: grid;
   gap: 12px;
