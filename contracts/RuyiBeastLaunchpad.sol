@@ -65,10 +65,9 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant DEFAULT_SUPPLY = 1_000_000_000 ether;
     uint16 public constant BPS = 10_000;
     uint16 public constant DEFAULT_REQUIRED_TOKEN_SUFFIX = 0xdddd;
-    uint16 public constant DEFAULT_AUTO_BUYBACK_BPS = 200;
-    uint16 public constant DEFAULT_AUTO_LIQUIDITY_BPS = 50;
-    uint256 public constant DEFAULT_AUTO_PROCESS_THRESHOLD = 1 ether;
-    uint256 public constant DEFAULT_AUTO_PROCESS_LIMIT = 1 ether;
+    uint16 public constant DEFAULT_AUTO_BUYBACK_BPS = 8_000;
+    uint16 public constant DEFAULT_AUTO_LIQUIDITY_BPS = 2_000;
+    uint256 public constant MIN_AUTO_PROCESS_THRESHOLD = 1 ether;
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     address public constant PANCAKE_V2_ROUTER_BSC = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
 
@@ -486,12 +485,13 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
             true,
             true
         );
+        (uint256 autoProcessThreshold, uint256 autoProcessLimit) = _defaultDexAutomationAmounts(token);
         vault.setDexAutomationConfig(
             token,
             DEFAULT_AUTO_BUYBACK_BPS,
             DEFAULT_AUTO_LIQUIDITY_BPS,
-            DEFAULT_AUTO_PROCESS_THRESHOLD,
-            DEFAULT_AUTO_PROCESS_LIMIT
+            autoProcessThreshold,
+            autoProcessLimit
         );
     }
 
@@ -630,6 +630,22 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
         require(isLaunchpadToken[token], "RuyiLaunchpad: unknown token");
         uint256 projectId = tokenToProjectId[token];
         require(projectSaleVault[projectId] == msg.sender, "RuyiLaunchpad: not launch sale vault");
+    }
+
+    function _defaultDexAutomationAmounts(
+        address token
+    ) private view returns (uint256 autoProcessThreshold, uint256 autoProcessLimit) {
+        uint256 initialSupply = _projects[tokenToProjectId[token]].initialSupply;
+
+        autoProcessThreshold = initialSupply / 10_000;
+        if (autoProcessThreshold < MIN_AUTO_PROCESS_THRESHOLD) {
+            autoProcessThreshold = MIN_AUTO_PROCESS_THRESHOLD;
+        }
+
+        autoProcessLimit = initialSupply / 1_000;
+        if (autoProcessLimit < autoProcessThreshold) {
+            autoProcessLimit = autoProcessThreshold;
+        }
     }
 
     function _forwardCreationFee() private {

@@ -114,10 +114,11 @@ const TOKEN_UNIT = 1_000_000_000_000_000_000n;
 const DEFAULT_SUPPLY = 1_000_000_000n * TOKEN_UNIT;
 const CREATE_GAS_BUFFER = 3_000_000_000_000_000n;
 const PLATFORM_TAX_SHARE_BPS = 2_000n;
-const FIXED_DEX_AUTO_BUYBACK_BPS = 200n;
-const FIXED_DEX_AUTO_LIQUIDITY_BPS = 50n;
-const FIXED_DEX_AUTO_THRESHOLD = TOKEN_UNIT;
-const FIXED_DEX_AUTO_LIMIT = TOKEN_UNIT;
+const FIXED_DEX_AUTO_BUYBACK_BPS = 8_000n;
+const FIXED_DEX_AUTO_LIQUIDITY_BPS = 2_000n;
+const MIN_DEX_AUTO_THRESHOLD = TOKEN_UNIT;
+const FALLBACK_DEX_AUTO_THRESHOLD = 100_000n * TOKEN_UNIT;
+const FALLBACK_DEX_AUTO_LIMIT = 1_000_000n * TOKEN_UNIT;
 const MAX_BUY_TAX_BPS = 500;
 const MAX_SELL_TAX_BPS = 1000;
 const DEFAULT_BUY_TAX_BPS = 300;
@@ -1538,6 +1539,7 @@ function renderAdminTools(project) {
     const defaultNativePair = dex.enabled ? dex.nativePair : true;
     const defaultBurnBuyback = dex.enabled ? dex.burnBuyback : true;
     const defaultDexEnabled = dex.enabled || hasDexPair;
+    const dexAuto = dexAutomationDefaults(project);
     const airdropPanel = project.airdropSupported ? `
       <section class="admin-panel">
         <div class="admin-head">
@@ -1609,12 +1611,12 @@ function renderAdminTools(project) {
           <div><span>LP 接收</span><strong title="${escapeHtml(lpReceiver)}">${lpReceiverLabel(lpReceiver)}</strong></div>
           <div><span>自动路由</span><strong>${shortAddress(defaultDexRouter)}</strong></div>
           <div><span>自动 Pair</span><strong>${shortAddress(defaultDexPair)}</strong></div>
-          <div><span>自动回购</span><strong>${formatBps(FIXED_DEX_AUTO_BUYBACK_BPS)}</strong></div>
-          <div><span>自动加池</span><strong>${formatBps(FIXED_DEX_AUTO_LIQUIDITY_BPS)}</strong></div>
+          <div><span>自动回购</span><strong>${formatBps(dexAuto.buybackBps)}</strong></div>
+          <div><span>自动加池</span><strong>${formatBps(dexAuto.liquidityBps)}</strong></div>
         </div>
         <div class="dex-fixed-note">
           <span>固定参数</span>
-          <strong>回购 ${formatBps(FIXED_DEX_AUTO_BUYBACK_BPS)} / 加池 ${formatBps(FIXED_DEX_AUTO_LIQUIDITY_BPS)} / 阈值 ${ethers.formatEther(FIXED_DEX_AUTO_THRESHOLD)} / 上限 ${ethers.formatEther(FIXED_DEX_AUTO_LIMIT)}</strong>
+          <strong>回购 ${formatBps(dexAuto.buybackBps)} / 加池 ${formatBps(dexAuto.liquidityBps)} / 阈值 ${ethers.formatEther(dexAuto.threshold)} / 上限 ${ethers.formatEther(dexAuto.limit)}</strong>
         </div>
         <form class="admin-form dex-form" data-dex-config-form>
           <label><span>Router 地址</span><input name="router" type="text" value="${addressInputValue(defaultDexRouter)}" placeholder="默认 Pancake V2" ${dexFormDisabled} /></label>
@@ -1638,13 +1640,30 @@ function addressInputValue(address) {
   return address && !sameAddress(address, ZERO_ADDRESS) ? escapeHtml(address) : "";
 }
 
+function dexAutomationDefaults(project) {
+  const supply = BigInt(project?.initialSupply ?? 0n);
+  let threshold = supply > 0n ? supply / 10_000n : FALLBACK_DEX_AUTO_THRESHOLD;
+  let limit = supply > 0n ? supply / 1_000n : FALLBACK_DEX_AUTO_LIMIT;
+
+  if (threshold < MIN_DEX_AUTO_THRESHOLD) threshold = MIN_DEX_AUTO_THRESHOLD;
+  if (limit < threshold) limit = threshold;
+
+  return {
+    buybackBps: FIXED_DEX_AUTO_BUYBACK_BPS,
+    liquidityBps: FIXED_DEX_AUTO_LIQUIDITY_BPS,
+    threshold,
+    limit
+  };
+}
+
 function applyFixedDexAutomation(launchpadWithSigner, project) {
+  const dexAuto = dexAutomationDefaults(project);
   return launchpadWithSigner.setDexAutomationConfig(
     project.token,
-    Number(FIXED_DEX_AUTO_BUYBACK_BPS),
-    Number(FIXED_DEX_AUTO_LIQUIDITY_BPS),
-    FIXED_DEX_AUTO_THRESHOLD,
-    FIXED_DEX_AUTO_LIMIT
+    Number(dexAuto.buybackBps),
+    Number(dexAuto.liquidityBps),
+    dexAuto.threshold,
+    dexAuto.limit
   );
 }
 
