@@ -148,8 +148,8 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         buyFees = FeeRates({evolution: 150, fortune: 50, risk: 50, reward: 50, treasury: 0, burn: 0});
         sellFees = FeeRates({evolution: 200, fortune: 100, risk: 100, reward: 50, treasury: 50, burn: 0});
 
-        maxTxAmount = initialSupply_ / 100;
-        maxWalletAmount = (initialSupply_ * 2) / 100;
+        maxTxAmount = initialSupply_;
+        maxWalletAmount = initialSupply_;
 
         _setFeeExempt(initialOwner_, true);
         _setFeeExempt(vault_, true);

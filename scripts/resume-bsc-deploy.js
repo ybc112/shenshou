@@ -4,6 +4,7 @@ const path = require("node:path");
 require("dotenv").config({ quiet: true });
 
 const DEFAULT_PLATFORM_TREASURY = "0xdE24f90b7802E32982E1af679449bA7FD6c3501D";
+const DEFAULT_CREATION_FEE_WEI = "5000000000000000";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -116,7 +117,7 @@ async function main() {
   const treasury = process.env.TREASURY || DEFAULT_PLATFORM_TREASURY;
   const creationFee =
     process.env.CREATION_FEE_WEI ||
-    (process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : "0");
+    (process.env.CREATION_FEE_BNB ? ethers.parseEther(process.env.CREATION_FEE_BNB).toString() : DEFAULT_CREATION_FEE_WEI);
 
   let nonce = await provider.getTransactionCount(wallet.address, "pending");
 

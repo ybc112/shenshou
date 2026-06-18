@@ -79,6 +79,8 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.projectId(), 0n);
     assert.equal(await token.owner(), creator.address);
     assert.equal(await token.balanceOf(creator.address), supply);
+    assert.equal(await token.maxTxAmount(), supply);
+    assert.equal(await token.maxWalletAmount(), supply);
     assert.equal(await vault.registeredTokens(await token.getAddress()), true);
   });
 
