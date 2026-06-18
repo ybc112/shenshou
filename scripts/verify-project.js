@@ -163,17 +163,25 @@ function getConfiguredLaunchpadAddress() {
 
 async function verifyOne({ address, constructorArgsPath, contract, label }) {
   console.log(`Verifying ${label}: ${address}`);
-  await runCommand("npx", [
-    "hardhat",
-    "verify",
-    "--network",
-    "bsc",
-    "--contract",
-    contract,
-    "--constructor-args",
-    constructorArgsPath,
-    address
-  ]);
+  try {
+    await runCommand("npx", [
+      "hardhat",
+      "verify",
+      "--network",
+      "bsc",
+      "--contract",
+      contract,
+      "--constructor-args",
+      constructorArgsPath,
+      address
+    ]);
+    return;
+  } catch (error) {
+    if (await waitForSourceCode(address, label)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function writeArgsFile(filePath, args) {
@@ -217,6 +225,39 @@ function runCommand(command, args) {
     });
     child.on("error", reject);
   });
+}
+
+async function waitForSourceCode(address, label) {
+  const apiKey = process.env.BSCSCAN_API_KEY || process.env.ETHERSCAN_API_KEY || "";
+  if (!apiKey || typeof fetch !== "function") return false;
+
+  const endpoint = process.env.ETHERSCAN_V2_API_URL || "https://api.etherscan.com/v2/api";
+  const chainId = process.env.RUYI_CHAIN_ID || "56";
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
+    const params = new URLSearchParams({
+      chainid: chainId,
+      module: "contract",
+      action: "getsourcecode",
+      address,
+      apikey: apiKey
+    });
+
+    try {
+      const response = await fetch(`${endpoint}?${params.toString()}`);
+      const json = await response.json();
+      const item = Array.isArray(json.result) ? json.result[0] : null;
+      if (json.status === "1" && item?.SourceCode) {
+        console.log(`${label} already visible as verified source on explorer.`);
+        return true;
+      }
+    } catch (error) {
+      console.warn(`Verification status check failed for ${label}:`, error instanceof Error ? error.message : error);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 15_000));
+  }
+
+  return false;
 }
 
 function sameAddress(left, right) {

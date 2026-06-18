@@ -35,13 +35,16 @@ module.exports = {
     }
   },
   etherscan: {
-    apiKey: process.env.BSCSCAN_API_KEY || "",
+    apiKey: {
+      bsc: process.env.BSCSCAN_API_KEY || "",
+      bscTestnet: process.env.BSCSCAN_API_KEY || ""
+    },
     customChains: [
       {
         network: "bsc",
         chainId: 56,
         urls: {
-          apiURL: "https://api.bscscan.com/api",
+          apiURL: "https://api.etherscan.com/v2/api?chainid=56",
           browserURL: "https://bscscan.com"
         }
       },
