@@ -4302,22 +4302,18 @@ body {
 }
 
 .dock-primary {
-  transform: translateY(-4px);
-  border-color: rgba(245, 205, 114, 0.22);
-  background:
-    linear-gradient(180deg, rgba(245, 205, 114, 0.18), rgba(245, 205, 114, 0.06)),
-    rgba(255, 255, 255, 0.04);
   color: #f6d277;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 .dock-primary.active,
 .dock-primary:hover {
+  transform: translateY(-4px);
   border-color: rgba(245, 205, 114, 0.58);
   background:
     linear-gradient(180deg, rgba(245, 205, 114, 0.26), rgba(245, 205, 114, 0.1)),
     rgba(255, 255, 255, 0.06);
   color: #ffefb9;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 @media (max-width: 820px) {
