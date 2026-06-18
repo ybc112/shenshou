@@ -195,6 +195,12 @@ const state = {
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+function submittedForm(event) {
+  if (event?.target instanceof HTMLFormElement) return event.target;
+  if (event?.currentTarget instanceof HTMLFormElement) return event.currentTarget;
+  throw new Error("Form submission target missing.");
+}
+
 function shortAddress(address) {
   if (!address || address === "--") return "--";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -2716,7 +2722,7 @@ async function withdrawCancelledTokens() {
 
 async function saveEvolutionConfig(event) {
   event.preventDefault();
-  const form = event.currentTarget;
+  const form = submittedForm(event);
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
@@ -2739,7 +2745,7 @@ async function saveEvolutionConfig(event) {
 
 async function saveAirdropConfig(event) {
   event.preventDefault();
-  const form = event.currentTarget;
+  const form = submittedForm(event);
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
@@ -2764,7 +2770,7 @@ async function saveAirdropConfig(event) {
 
 async function saveRewardConfig(event) {
   event.preventDefault();
-  const form = event.currentTarget;
+  const form = submittedForm(event);
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
@@ -2820,7 +2826,7 @@ async function openRewardRound() {
 
 async function saveDexConfig(event) {
   event.preventDefault();
-  const form = event.currentTarget;
+  const form = submittedForm(event);
   const project = requireSelectedProject();
   if (!project || !(await ensureWritable()) || !requireProjectAdminWallet(project)) return;
 
@@ -3144,18 +3150,19 @@ function bindEvents() {
 
     if (form.matches("[data-evolution-config-form]")) {
       await saveEvolutionConfig(event);
-    }
-    if (form.matches("[data-airdrop-config-form]")) {
+      return;
+    } else if (form.matches("[data-airdrop-config-form]")) {
       await saveAirdropConfig(event);
-    }
-    if (form.matches("[data-reward-config-form]")) {
+      return;
+    } else if (form.matches("[data-reward-config-form]")) {
       await saveRewardConfig(event);
-    }
-    if (form.matches("[data-dex-config-form]")) {
+      return;
+    } else if (form.matches("[data-dex-config-form]")) {
       await saveDexConfig(event);
-    }
-    if (form.matches("[data-dex-auto-form]")) {
+      return;
+    } else if (form.matches("[data-dex-auto-form]")) {
       await saveDexAutomationConfig(event);
+      return;
     }
   });
 
@@ -3186,6 +3193,22 @@ function bindEvents() {
     if (createSubmit) {
       event.preventDefault();
       submitCreateFormFromButton(createSubmit);
+      return;
+    }
+
+    const adminSubmit = event.target.closest(
+      "[data-evolution-config-form] button[type='submit'], [data-airdrop-config-form] button[type='submit'], [data-reward-config-form] button[type='submit'], [data-dex-config-form] button[type='submit'], [data-dex-auto-form] button[type='submit']"
+    );
+    if (adminSubmit) {
+      const form = adminSubmit.closest("form");
+      if (form) {
+        event.preventDefault();
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit(adminSubmit);
+        } else {
+          form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
+      }
       return;
     }
 
