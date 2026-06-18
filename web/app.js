@@ -140,7 +140,9 @@ const HIDDEN_PROJECT_TOKENS = new Set([
   "0x85a0ad530fdd2f39465a73dd2bb4126e5392dddd",
   "0x58db8c07ba4b73193c136fc194abf22fd3ffdddd",
   "0x0dc9ecb7f6417396735df4da909fbd538765dddd",
-  "0xb85fc748868999da731be09831607c67ebe6dddd"
+  "0xb85fc748868999da731be09831607c67ebe6dddd",
+  "0xc37c3b1cf51036450523b274d1e3acfa6156dddd",
+  "0x84a3222f15564d33805a01357864866ca10bdddd"
 ]);
 const HIDDEN_PROJECT_NAMES = new Set([
   "\u76ae\u5361\u4e18",
