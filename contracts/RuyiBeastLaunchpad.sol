@@ -637,12 +637,12 @@ contract RuyiBeastLaunchpad is Ownable, ReentrancyGuard {
     ) private view returns (uint256 autoProcessThreshold, uint256 autoProcessLimit) {
         uint256 initialSupply = _projects[tokenToProjectId[token]].initialSupply;
 
-        autoProcessThreshold = initialSupply / 10_000;
+        autoProcessThreshold = initialSupply / 5_000;
         if (autoProcessThreshold < MIN_AUTO_PROCESS_THRESHOLD) {
             autoProcessThreshold = MIN_AUTO_PROCESS_THRESHOLD;
         }
 
-        autoProcessLimit = initialSupply / 1_000;
+        autoProcessLimit = initialSupply / 2_500;
         if (autoProcessLimit < autoProcessThreshold) {
             autoProcessLimit = autoProcessThreshold;
         }

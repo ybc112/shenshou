@@ -117,8 +117,8 @@ const PLATFORM_TAX_SHARE_BPS = 2_000n;
 const FIXED_DEX_AUTO_BUYBACK_BPS = 8_000n;
 const FIXED_DEX_AUTO_LIQUIDITY_BPS = 2_000n;
 const MIN_DEX_AUTO_THRESHOLD = TOKEN_UNIT;
-const FALLBACK_DEX_AUTO_THRESHOLD = 100_000n * TOKEN_UNIT;
-const FALLBACK_DEX_AUTO_LIMIT = 1_000_000n * TOKEN_UNIT;
+const FALLBACK_DEX_AUTO_THRESHOLD = 200_000n * TOKEN_UNIT;
+const FALLBACK_DEX_AUTO_LIMIT = 400_000n * TOKEN_UNIT;
 const MAX_BUY_TAX_BPS = 500;
 const MAX_SELL_TAX_BPS = 1000;
 const DEFAULT_BUY_TAX_BPS = 300;
@@ -1642,8 +1642,8 @@ function addressInputValue(address) {
 
 function dexAutomationDefaults(project) {
   const supply = BigInt(project?.initialSupply ?? 0n);
-  let threshold = supply > 0n ? supply / 10_000n : FALLBACK_DEX_AUTO_THRESHOLD;
-  let limit = supply > 0n ? supply / 1_000n : FALLBACK_DEX_AUTO_LIMIT;
+  let threshold = supply > 0n ? supply / 5_000n : FALLBACK_DEX_AUTO_THRESHOLD;
+  let limit = supply > 0n ? supply / 2_500n : FALLBACK_DEX_AUTO_LIMIT;
 
   if (threshold < MIN_DEX_AUTO_THRESHOLD) threshold = MIN_DEX_AUTO_THRESHOLD;
   if (limit < threshold) limit = threshold;

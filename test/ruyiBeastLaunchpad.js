@@ -410,9 +410,9 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(dex.enabled, true);
     assert.equal(dex.autoBuybackBps, 8000n);
     assert.equal(dex.autoLiquidityBps, 2000n);
-    const expectedAutoThreshold = project.initialSupply / 10_000n;
+    const expectedAutoThreshold = project.initialSupply / 5_000n;
     assert.equal(dex.autoProcessThreshold, expectedAutoThreshold);
-    assert.equal(dex.autoProcessLimit, project.initialSupply / 1_000n);
+    assert.equal(dex.autoProcessLimit, project.initialSupply / 2_500n);
 
     await assert.rejects(
       launchpad.connect(creator).configureDexAfterSale(
