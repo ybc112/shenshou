@@ -7,7 +7,7 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: http://36.151.145.15/ruyi-api/api/*
+        destination: https://xueshutools.cn/ruyi-api/api/*
       - type: rewrite
         source: /*
         destination: /index.html
