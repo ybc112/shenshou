@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>神兽发射台</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260617-menu-select" />
+    <link rel="stylesheet" href="./styles.css?v=20260618-mobile-dock" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./vendor/ethers.umd.min.js"></script>
   </head>
@@ -706,6 +706,25 @@
         </section>
       </main>
     </div>
+
+    <nav class="mobile-dock" aria-label="底部主导航">
+      <button class="dock-item active" type="button" data-nav="#home">
+        <i data-lucide="home"></i>
+        <span>首页</span>
+      </button>
+      <button class="dock-item dock-primary" type="button" data-nav="#create">
+        <i data-lucide="sparkles"></i>
+        <span>创建</span>
+      </button>
+      <button class="dock-item" type="button" data-nav="#rank">
+        <i data-lucide="bar-chart-3"></i>
+        <span>兽巢</span>
+      </button>
+      <button class="dock-item" type="button" data-nav="#reward">
+        <i data-lucide="gift"></i>
+        <span>奖励</span>
+      </button>
+    </nav>
 
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>

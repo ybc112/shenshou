@@ -4098,16 +4098,19 @@ body {
   }
 }
 
-/* Page menu navigation: replace the old side/top/bottom nav bars with one dropdown. */
+/* Page menu plus mobile bottom navigation. */
 .app-shell {
   display: block;
   grid-template-columns: minmax(0, 1fr);
 }
 
 .sidebar,
-.top-tabs,
-.mobile-dock {
+.top-tabs {
   display: none !important;
+}
+
+.mobile-dock {
+  display: none;
 }
 
 .workspace {
@@ -4243,13 +4246,91 @@ body {
   color: #fff4cf;
 }
 
+.mobile-dock {
+  position: fixed;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 12px;
+  z-index: 60;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 78px;
+  padding: 8px 10px;
+  border: 1px solid rgba(213, 164, 77, 0.58);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(6, 34, 41, 0.94), rgba(3, 17, 27, 0.96)),
+    radial-gradient(circle at 50% 0%, rgba(245, 205, 114, 0.16), transparent 54%);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(255, 231, 168, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.dock-item {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #b9c6c4;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.dock-item svg {
+  width: 24px;
+  height: 24px;
+}
+
+.dock-item span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-item:hover,
+.dock-item.active {
+  border-color: rgba(255, 231, 168, 0.28);
+  background: rgba(255, 231, 168, 0.08);
+  color: #fff0b5;
+}
+
+.dock-primary {
+  transform: translateY(-4px);
+  border-color: rgba(245, 205, 114, 0.22);
+  background:
+    linear-gradient(180deg, rgba(245, 205, 114, 0.18), rgba(245, 205, 114, 0.06)),
+    rgba(255, 255, 255, 0.04);
+  color: #f6d277;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.dock-primary.active,
+.dock-primary:hover {
+  border-color: rgba(245, 205, 114, 0.58);
+  background:
+    linear-gradient(180deg, rgba(245, 205, 114, 0.26), rgba(245, 205, 114, 0.1)),
+    rgba(255, 255, 255, 0.06);
+  color: #ffefb9;
+}
+
 @media (max-width: 820px) {
   body {
-    padding-bottom: 0;
+    padding-bottom: calc(102px + env(safe-area-inset-bottom, 0px));
   }
 
   .workspace {
-    padding: 0 12px 34px;
+    padding: 0 12px 118px;
+  }
+
+  .mobile-dock {
+    display: grid;
   }
 
   .topbar {
@@ -4289,7 +4370,7 @@ body {
   }
 
   .toast {
-    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 }
 
