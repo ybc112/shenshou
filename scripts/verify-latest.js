@@ -31,6 +31,10 @@ async function verifyContract(address, constructorArguments = [], contract = und
         console.log(`Already verified: ${address}`);
         return;
       }
+      if (await waitForSourceCode(address)) {
+        console.log(`Verified source is visible: ${address}`);
+        return;
+      }
       if (attempt < 5 && isRetryableExplorerError(message)) {
         console.log(`Explorer request failed, retrying ${address} (${attempt}/5)`);
         await sleep(10000);
@@ -39,6 +43,39 @@ async function verifyContract(address, constructorArguments = [], contract = und
       throw error;
     }
   }
+}
+
+async function waitForSourceCode(address) {
+  const apiKey = process.env.BSCSCAN_API_KEY || process.env.ETHERSCAN_API_KEY || "";
+  if (!apiKey || typeof fetch !== "function") return false;
+
+  const endpoint = process.env.ETHERSCAN_V2_API_URL || "https://api.etherscan.com/v2/api";
+  const chainId = process.env.RUYI_CHAIN_ID || "56";
+
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const params = new URLSearchParams({
+      chainid: chainId,
+      module: "contract",
+      action: "getsourcecode",
+      address,
+      apikey: apiKey
+    });
+
+    try {
+      const response = await fetch(`${endpoint}?${params.toString()}`);
+      const json = await response.json();
+      const item = Array.isArray(json.result) ? json.result[0] : null;
+      if (json.status === "1" && item?.SourceCode) {
+        return true;
+      }
+    } catch {
+      // The normal Hardhat verify output above is more useful than a transient status check.
+    }
+
+    await sleep(15000);
+  }
+
+  return false;
 }
 
 async function main() {
