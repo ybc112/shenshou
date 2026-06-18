@@ -25,11 +25,23 @@ interface IRuyiMintDexFactory {
     function createPair(address tokenA, address tokenB) external returns (address pair);
 }
 
+interface IRuyiSaleLaunchpad {
+    function configureDexAfterSale(
+        address token,
+        address router,
+        address pairedToken,
+        address pair,
+        address liquidityReceiver,
+        bool nativePair
+    ) external;
+}
+
 contract RuyiBeastSaleVault is ReentrancyGuard {
     uint16 public constant BPS = 10_000;
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
     RuyiBeastToken public immutable token;
+    address public immutable launchpad;
     address public immutable creator;
     address public liquidityRouter;
     address public liquidityReceiver;
@@ -89,6 +101,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
 
     constructor(
         address token_,
+        address launchpad_,
         address creator_,
         address liquidityReceiver_,
         address liquidityRouter_,
@@ -102,6 +115,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         bool autoOpenTrading_
     ) {
         require(token_ != address(0), "RuyiSale: zero token");
+        require(launchpad_ != address(0), "RuyiSale: zero launchpad");
         require(creator_ != address(0), "RuyiSale: zero creator");
         require(mintCount_ > 0, "RuyiSale: zero mint count");
         require(tokensPerMint_ > 0, "RuyiSale: zero tokens per mint");
@@ -121,6 +135,7 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         uint256 liquidityTokenSupply = (userTokenSupply * BPS) / BPS;
 
         token = RuyiBeastToken(payable(token_));
+        launchpad = launchpad_;
         creator = creator_;
         liquidityReceiver = liquidityReceiver_ == address(0) ? DEAD : liquidityReceiver_;
         liquidityRouter = liquidityRouter_;
@@ -261,7 +276,8 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
         emit BeastMinted(buyer, quantity, tokenAmount, liquidityTokenAmount, cost, liquidity);
 
         if (autoOpenTrading && remainingMintCount == 0) {
-            _finalize(_resolveLaunchPair());
+            (address pair, address pairedAsset) = _resolveLaunchPair();
+            _finalize(pair, pairedAsset);
         }
     }
 
@@ -319,10 +335,10 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
             require(msg.sender == creator, "RuyiSale: only creator");
         }
 
-        _finalize(pair);
+        _finalize(pair, address(0));
     }
 
-    function _finalize(address pair) private {
+    function _finalize(address pair, address pairedAsset) private {
         require(pair != address(0), "RuyiSale: zero pair");
 
         uint256 unsoldTokens = remainingSaleSupply;
@@ -337,17 +353,33 @@ contract RuyiBeastSaleVault is ReentrancyGuard {
 
         token.setAutomatedMarketMakerPair(pair, true);
         token.enableTrading();
+
+        if (liquidityRouter != address(0)) {
+            address configuredPairedAsset = pairedAsset;
+            if (configuredPairedAsset == address(0)) {
+                configuredPairedAsset = IRuyiMintDexRouter(liquidityRouter).WETH();
+            }
+            IRuyiSaleLaunchpad(launchpad).configureDexAfterSale(
+                address(token),
+                liquidityRouter,
+                configuredPairedAsset,
+                pair,
+                liquidityReceiver,
+                true
+            );
+        }
+
         token.transferOwnership(creator);
 
         emit LaunchFinalized(pair, proceeds, unsoldTokens);
     }
 
-    function _resolveLaunchPair() private returns (address pair) {
+    function _resolveLaunchPair() private returns (address pair, address pairedAsset) {
         address router = liquidityRouter;
         require(router != address(0), "RuyiSale: zero router");
 
         address factory = IRuyiMintDexRouter(router).factory();
-        address pairedAsset = IRuyiMintDexRouter(router).WETH();
+        pairedAsset = IRuyiMintDexRouter(router).WETH();
         require(factory != address(0) && pairedAsset != address(0), "RuyiSale: bad router");
 
         pair = IRuyiMintDexFactory(factory).getPair(address(token), pairedAsset);

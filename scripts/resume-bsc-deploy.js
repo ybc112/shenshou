@@ -1,6 +1,7 @@
 const { ethers } = require("ethers");
 const fs = require("node:fs");
 const path = require("node:path");
+require("dotenv").config({ quiet: true });
 
 const DEFAULT_PLATFORM_TREASURY = "0xdE24f90b7802E32982E1af679449bA7FD6c3501D";
 

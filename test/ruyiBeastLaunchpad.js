@@ -365,6 +365,7 @@ describe("Ruyi Beast Launchpad", function () {
 
     const project = await launchpad.getProject(0);
     const token = await ethers.getContractAt("RuyiBeastToken", project.token);
+    const vault = await ethers.getContractAt("RuyiBeastVault", await launchpad.vault());
     const saleVaultAddress = await launchpad.projectSaleVault(0);
     const saleVault = await ethers.getContractAt("RuyiBeastSaleVault", saleVaultAddress);
 
@@ -395,6 +396,32 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.controlsLocked(), true);
     assert.notEqual(launchPair, ethers.ZeroAddress);
     assert.equal(await token.automatedMarketMakerPairs(launchPair), true);
+
+    const dex = await vault.dexConfigs(project.token);
+    assert.equal(dex.router, routerAddress);
+    assert.equal(dex.pairedToken, await router.WETH());
+    assert.equal(dex.pair, launchPair);
+    assert.equal(dex.liquidityReceiver, dead);
+    assert.equal(dex.buybackRecipient, dead);
+    assert.equal(dex.nativePair, true);
+    assert.equal(dex.burnBuyback, true);
+    assert.equal(dex.enabled, true);
+    assert.equal(dex.autoBuybackBps, 200n);
+    assert.equal(dex.autoLiquidityBps, 50n);
+    assert.equal(dex.autoProcessThreshold, ethers.parseEther("1"));
+    assert.equal(dex.autoProcessLimit, ethers.parseEther("1"));
+
+    await assert.rejects(
+      launchpad.connect(creator).configureDexAfterSale(
+        project.token,
+        routerAddress,
+        await router.WETH(),
+        launchPair,
+        dead,
+        true
+      ),
+      /not launch sale vault/
+    );
   });
 
   it("keeps sold-out launches manual when auto open is disabled", async function () {

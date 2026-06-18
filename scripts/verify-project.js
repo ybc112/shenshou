@@ -14,6 +14,7 @@ const LAUNCHPAD_ABI = [
 ];
 
 const SALE_VAULT_ABI = [
+  "function launchpad() view returns (address)",
   "function creator() view returns (address)",
   "function liquidityReceiver() view returns (address)",
   "function liquidityRouter() view returns (address)",
@@ -89,6 +90,7 @@ async function main() {
   if (hasSaleVault) {
     const saleVault = new Contract(saleVaultAddress, SALE_VAULT_ABI, provider);
     const [
+      saleLaunchpad,
       creator,
       liquidityReceiver,
       liquidityRouter,
@@ -101,6 +103,7 @@ async function main() {
       saleDeadline,
       autoOpenTrading
     ] = await Promise.all([
+      saleVault.launchpad(),
       saleVault.creator(),
       saleVault.liquidityReceiver(),
       saleVault.liquidityRouter(),
@@ -116,6 +119,7 @@ async function main() {
     const saleArgsPath = path.join(argsDir, "sale-vault.cjs");
     writeArgsFile(saleArgsPath, [
       token,
+      saleLaunchpad,
       creator,
       liquidityReceiver,
       liquidityRouter,

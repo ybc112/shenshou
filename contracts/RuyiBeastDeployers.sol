@@ -38,6 +38,7 @@ contract RuyiBeastTokenDeployer {
 contract RuyiBeastSaleVaultDeployer {
     function deploySaleVault(
         address token,
+        address launchpad,
         address creator,
         address liquidityReceiver,
         address liquidityRouter,
@@ -53,6 +54,7 @@ contract RuyiBeastSaleVaultDeployer {
         saleVault = address(
             new RuyiBeastSaleVault(
                 token,
+                launchpad,
                 creator,
                 liquidityReceiver,
                 liquidityRouter,
