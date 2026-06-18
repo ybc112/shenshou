@@ -38,6 +38,16 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
         uint16 burn;
     }
 
+    struct FeeBreakdown {
+        uint256 feeAmount;
+        uint256 evolution;
+        uint256 fortune;
+        uint256 risk;
+        uint256 reward;
+        uint256 treasury;
+        uint256 burn;
+    }
+
     address public immutable vault;
     address public immutable launchpad;
     uint256 public immutable projectId;
@@ -379,69 +389,40 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
             return;
         }
 
-        FeeRates memory rates = isSell ? sellFees : buyFees;
-
-        uint256 totalFeeBps_ = _totalFeeBps(rates);
-        if (totalFeeBps_ == 0) {
-            uint256 zeroTaxAirdropAmount = _processAirdrops(from, value, 0);
-            _rawUpdate(from, to, value - zeroTaxAirdropAmount);
-            return;
-        }
-
-        uint256 feeAmount = (value * totalFeeBps_) / BPS;
-        if (feeAmount == 0) {
+        FeeBreakdown memory fees = _feeBreakdown(value, isSell ? sellFees : buyFees);
+        if (fees.feeAmount == 0) {
             uint256 dustAirdropAmount = _processAirdrops(from, value, 0);
             _rawUpdate(from, to, value - dustAirdropAmount);
             return;
         }
 
-        uint256 platformAmount = (feeAmount * PLATFORM_TAX_SHARE_BPS) / BPS;
-        uint256 projectFeeAmount = feeAmount - platformAmount;
-
-        uint256 evolutionAmount = _projectFeeShare(projectFeeAmount, rates.evolution, totalFeeBps_);
-        uint256 fortuneAmount = _projectFeeShare(projectFeeAmount, rates.fortune, totalFeeBps_);
-        uint256 riskAmount = _projectFeeShare(projectFeeAmount, rates.risk, totalFeeBps_);
-        uint256 rewardAmount = _projectFeeShare(projectFeeAmount, rates.reward, totalFeeBps_);
-        uint256 treasuryAmount = _projectFeeShare(projectFeeAmount, rates.treasury, totalFeeBps_) + platformAmount;
-        uint256 burnAmount = _projectFeeShare(projectFeeAmount, rates.burn, totalFeeBps_);
-
-        uint256 routedAmount = evolutionAmount + fortuneAmount + riskAmount + rewardAmount + treasuryAmount + burnAmount;
-        if (feeAmount > routedAmount) {
-            treasuryAmount += feeAmount - routedAmount;
-        }
-
-        uint256 vaultAmount = evolutionAmount + fortuneAmount + riskAmount + rewardAmount + treasuryAmount;
-        uint256 airdropAmount = _processAirdrops(from, value, feeAmount);
-        uint256 sendAmount = value - feeAmount - airdropAmount;
+        uint256 vaultAmount = fees.evolution + fees.fortune + fees.risk + fees.reward + fees.treasury;
+        uint256 airdropAmount = _processAirdrops(from, value, fees.feeAmount);
+        uint256 sendAmount = value - fees.feeAmount - airdropAmount;
 
         if (vaultAmount > 0) {
             _rawUpdate(from, vault, vaultAmount);
         }
 
-        if (burnAmount > 0) {
-            _rawUpdate(from, DEAD, burnAmount);
+        if (fees.burn > 0) {
+            _rawUpdate(from, DEAD, fees.burn);
         }
 
         _rawUpdate(from, to, sendAmount);
 
-        aura += evolutionAmount;
+        aura += fees.evolution;
 
         IRuyiBeastVault(vault).recordFees(
             address(this),
-            evolutionAmount,
-            fortuneAmount,
-            riskAmount,
-            rewardAmount,
-            treasuryAmount,
-            burnAmount
+            fees.evolution,
+            fees.fortune,
+            fees.risk,
+            fees.reward,
+            fees.treasury,
+            fees.burn
         );
 
-        if (isSell) {
-            try IRuyiBeastVault(vault).processAutoDex(address(this)) {}
-            catch {}
-        }
-
-        emit FeesTaken(from, to, isSell, feeAmount, evolutionAmount, rewardAmount);
+        emit FeesTaken(from, to, isSell, fees.feeAmount, fees.evolution, fees.reward);
     }
 
     function _rawUpdate(address from, address to, uint256 value) private {
@@ -564,6 +545,36 @@ contract RuyiBeastToken is ERC20, Ownable, ReentrancyGuard {
 
     function _totalFeeBps(FeeRates memory fees) private pure returns (uint256) {
         return fees.evolution + fees.fortune + fees.risk + fees.reward + fees.treasury + fees.burn;
+    }
+
+    function _feeBreakdown(
+        uint256 amount,
+        FeeRates memory rates
+    ) private pure returns (FeeBreakdown memory fees) {
+        uint256 totalFeeBps_ = _totalFeeBps(rates);
+        if (totalFeeBps_ == 0) {
+            return fees;
+        }
+
+        fees.feeAmount = (amount * totalFeeBps_) / BPS;
+        if (fees.feeAmount == 0) {
+            return fees;
+        }
+
+        uint256 platformAmount = (fees.feeAmount * PLATFORM_TAX_SHARE_BPS) / BPS;
+        uint256 projectFeeAmount = fees.feeAmount - platformAmount;
+
+        fees.evolution = _projectFeeShare(projectFeeAmount, rates.evolution, totalFeeBps_);
+        fees.fortune = _projectFeeShare(projectFeeAmount, rates.fortune, totalFeeBps_);
+        fees.risk = _projectFeeShare(projectFeeAmount, rates.risk, totalFeeBps_);
+        fees.reward = _projectFeeShare(projectFeeAmount, rates.reward, totalFeeBps_);
+        fees.treasury = _projectFeeShare(projectFeeAmount, rates.treasury, totalFeeBps_) + platformAmount;
+        fees.burn = _projectFeeShare(projectFeeAmount, rates.burn, totalFeeBps_);
+
+        uint256 routedAmount = fees.evolution + fees.fortune + fees.risk + fees.reward + fees.treasury + fees.burn;
+        if (fees.feeAmount > routedAmount) {
+            fees.treasury += fees.feeAmount - routedAmount;
+        }
     }
 
     function _projectFeeShare(

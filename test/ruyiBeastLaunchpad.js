@@ -689,7 +689,7 @@ describe("Ruyi Beast Launchpad", function () {
     assert.equal(await token.balanceOf(routerAddress), ethers.parseEther("10"));
   });
 
-  it("automatically processes treasury tokens into buyback and liquidity on sells", async function () {
+  it("queues treasury tokens on sells and processes buyback/liquidity out of band", async function () {
     const { owner, creator, pair, alice, token, vault, launchpad } = await deployFixture();
     const tokenAddress = await token.getAddress();
     const dead = "0x000000000000000000000000000000000000dEaD";
@@ -733,7 +733,14 @@ describe("Ruyi Beast Launchpad", function () {
     await token.connect(alice).transfer(pair.address, ethers.parseEther("100"));
     const poolsAfterSell = await vault.poolBalances(tokenAddress);
 
-    assert.equal(poolsAfterSell.treasury, ethers.parseEther("3.4"));
+    assert.equal(poolsAfterSell.treasury, ethers.parseEther("7.4"));
+    assert.equal(await token.balanceOf(dead), 0n);
+    assert.equal(await router.liquidityNonce(), 0n);
+
+    await launchpad.connect(creator).processAutoDex(tokenAddress);
+    const poolsAfterProcess = await vault.poolBalances(tokenAddress);
+
+    assert.equal(poolsAfterProcess.treasury, ethers.parseEther("3.4"));
     assert.equal(await token.balanceOf(dead), ethers.parseEther("2"));
     assert.equal(await router.liquidityNonce(), 1n);
   });
